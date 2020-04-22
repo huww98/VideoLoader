@@ -29,7 +29,7 @@ class build_ext(_build_ext):
             '-S', str(ext.cmake_root),
             '-B', str(build_temp),
             '-DCMAKE_BUILD_TYPE=' + config,
-            f'-D{ext.target.upper()}_DESTINATION={ext_path.parent.resolve()}',
+            f'-D{ext.target.upper()}_DESTINATION={ext_path.parent}',
             f'-D{ext.target.upper()}_NAME={ext_path.name}',
         ]
 

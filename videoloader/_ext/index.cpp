@@ -4,16 +4,16 @@
 #include <Python.h>
 
 static PyMethodDef videoLoaderMethods[] = {
-    {NULL, NULL, 0, NULL}        /* Sentinel */
+    {NULL, NULL, 0, NULL}
 };
 
 static struct PyModuleDef videoLoaderModule = {
-    PyModuleDef_HEAD_INIT,
-    "videoloader._ext",   /* name of module */
-    nullptr, /* module documentation, may be NULL */
-    -1,       /* size of per-interpreter state of the module,
-                 or -1 if the module keeps state in global variables. */
-    videoLoaderMethods,
+    .m_base = PyModuleDef_HEAD_INIT,
+    .m_name = "videoloader._ext",
+    .m_doc = nullptr,
+    .m_size = -1, /* size of per-interpreter state of the module,
+                     or -1 if the module keeps state in global variables. */
+    .m_methods = videoLoaderMethods,
 };
 
 PyMODINIT_FUNC PyInit__ext(void) {
