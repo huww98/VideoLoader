@@ -25,17 +25,21 @@ struct PyVideoLoader {
 };
 
 static PyObject *VideoLoader_AddVideoFile(PyVideoLoader *self, PyObject *args) {
-    PyBytesObject *file_path_obj;
-    if (!PyArg_ParseTuple(args, "O&", PyUnicode_FSConverter, &file_path_obj))
-        return nullptr;
+    std::string file_path_str;
+    {
+        PyBytesObject *_file_path_obj;
+        if (!PyArg_ParseTuple(args, "O&", PyUnicode_FSConverter, &_file_path_obj))
+            return nullptr;
 
-    auto file_path = PyBytes_AsString((PyObject *)file_path_obj);
-    if (file_path == nullptr)
-        return nullptr;
+        OwnedPyRef file_path_obj((PyObject *)_file_path_obj);
+        auto file_path = PyBytes_AsString(file_path_obj.get());
+        if (file_path == nullptr)
+            return nullptr;
+        file_path_str = file_path;
+    }
 
-    Py_DECREF(file_path_obj);
     try {
-        self->videoLoader.addVideoFile(file_path);
+        self->videoLoader.addVideoFile(file_path_str);
         return Py_None;
     } catch (std::runtime_error e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
