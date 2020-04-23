@@ -11,10 +11,12 @@ set(CXX_STANDARD_REQUIRED ON)
 add_compile_options(-Wall)
 
 find_package(Python COMPONENTS Development REQUIRED)
-find_package(FFmpeg REQUIRED)
+find_package(AvCodec REQUIRED)
+find_package(AvFormat REQUIRED)
+find_package(AvFilter REQUIRED)
 
-Python_add_library(videoloader MODULE PyRef.cpp videoloader.cpp index.cpp)
-target_link_libraries(videoloader PRIVATE FFmpeg::avcodec FFmpeg::avformat FFmpeg::avutil)
+add_library(videoloader SHARED PyRef.cpp videoloader.cpp index.cpp)
+target_link_libraries(videoloader PRIVATE Python::Module FFmpeg::AvCodec FFmpeg::AvFormat FFmpeg::AvFilter)
 
 if(VIDEOLOADER_NAME)
     set_target_properties(videoloader PROPERTIES
@@ -26,5 +28,5 @@ else(VIDEOLOADER_NAME)
     message(WARNING "Use setup.py to put binaries to correct location")
 endif(VIDEOLOADER_NAME)
 
-# add_executable(test_main main.cpp)
-# target_link_libraries(test_main videoloader)
+add_executable(test_main main.cpp)
+target_link_libraries(test_main Python::Python videoloader)
