@@ -55,12 +55,12 @@ static PyMethodDef VideoLoader_methods[] = {
 static PyTypeObject PyVideoLoaderType = {
     .ob_base = PyVarObject_HEAD_INIT(NULL, 0) // clang-format off
     .tp_name = "videoloader._ext._VideoLoader", // clang-format on
-    .tp_doc = "Custom objects",
     .tp_basicsize = sizeof(PyVideoLoader),
     .tp_itemsize = 0,
     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
-    .tp_new = PyType_GenericNew,
+    .tp_doc = "Custom objects",
     .tp_methods = VideoLoader_methods,
+    .tp_new = PyType_GenericNew,
 };
 
 PyMODINIT_FUNC PyInit__ext(void) {
