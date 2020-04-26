@@ -41,7 +41,7 @@ static PyObject *VideoLoader_AddVideoFile(PyVideoLoader *self, PyObject *args) {
     try {
         self->videoLoader.addVideoFile(file_path_str);
         return Py_None;
-    } catch (std::runtime_error e) {
+    } catch (std::runtime_error &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return nullptr;
     }
