@@ -1,5 +1,3 @@
-#include <iostream>
-
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
@@ -19,6 +17,25 @@ static struct PyModuleDef videoLoaderModule = {
     .m_methods = videoLoaderMethods,
 };
 
+struct PyVideo {
+    PyObject_HEAD;
+    videoloader::Video video;
+};
+
+static void PyVideo_dealloc(PyVideo *v) {
+    v->video.~Video();
+    Py_TYPE(v)->tp_free((PyObject *)v);
+}
+
+static PyTypeObject PyVideoType = {
+    .ob_base = PyVarObject_HEAD_INIT(NULL, 0) // clang-format off
+    .tp_name = "videoloader._ext._Video", // clang-format on
+    .tp_basicsize = sizeof(PyVideo),
+    .tp_itemsize = 0,
+    .tp_dealloc = (destructor)PyVideo_dealloc,
+    .tp_flags = Py_TPFLAGS_DEFAULT,
+};
+
 struct PyVideoLoader {
     PyObject_HEAD;
     videoloader::VideoLoader videoLoader;
@@ -28,7 +45,8 @@ static PyObject *VideoLoader_AddVideoFile(PyVideoLoader *self, PyObject *args) {
     std::string file_path_str;
     {
         PyBytesObject *_file_path_obj;
-        if (!PyArg_ParseTuple(args, "O&", PyUnicode_FSConverter, &_file_path_obj))
+        if (!PyArg_ParseTuple(args, "O&", PyUnicode_FSConverter,
+                              &_file_path_obj))
             return nullptr;
 
         OwnedPyRef file_path_obj((PyObject *)_file_path_obj);
@@ -39,8 +57,13 @@ static PyObject *VideoLoader_AddVideoFile(PyVideoLoader *self, PyObject *args) {
     }
 
     try {
-        self->videoLoader.addVideoFile(file_path_str);
-        return Py_None;
+        PyVideo *pyVideo = PyObject_New(PyVideo, &PyVideoType);
+        if (pyVideo == nullptr)
+            return nullptr;
+
+        new (&pyVideo->video)
+            videoloader::Video(self->videoLoader.addVideoFile(file_path_str));
+        return (PyObject *)pyVideo;
     } catch (std::runtime_error &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return nullptr;
@@ -48,7 +71,8 @@ static PyObject *VideoLoader_AddVideoFile(PyVideoLoader *self, PyObject *args) {
 }
 
 static PyMethodDef VideoLoader_methods[] = {
-    {"add_video_file", (PyCFunction) VideoLoader_AddVideoFile, METH_VARARGS, nullptr},
+    {"add_video_file", (PyCFunction)VideoLoader_AddVideoFile, METH_VARARGS,
+     nullptr},
     {NULL},
 };
 
@@ -58,7 +82,6 @@ static PyTypeObject PyVideoLoaderType = {
     .tp_basicsize = sizeof(PyVideoLoader),
     .tp_itemsize = 0,
     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
-    .tp_doc = "Custom objects",
     .tp_methods = VideoLoader_methods,
     .tp_new = PyType_GenericNew,
 };
@@ -66,13 +89,20 @@ static PyTypeObject PyVideoLoaderType = {
 PyMODINIT_FUNC PyInit__ext(void) {
     if (PyType_Ready(&PyVideoLoaderType) < 0)
         return nullptr;
-
     BorrowedPyRef loaderType((PyObject *)&PyVideoLoaderType);
+
+    if (PyType_Ready(&PyVideoType) < 0)
+        return nullptr;
+    BorrowedPyRef videoType((PyObject *)&PyVideoType);
+
     OwnedPyRef m = PyModule_Create(&videoLoaderModule);
     if (m.get() == nullptr)
         return nullptr;
 
     if (PyModule_AddObject(m.get(), "_VideoLoader", loaderType.get()) < 0) {
+        return nullptr;
+    }
+    if (PyModule_AddObject(m.get(), "_Video", videoType.get()) < 0) {
         return nullptr;
     }
 

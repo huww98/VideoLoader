@@ -18,8 +18,8 @@ class AvError : public std::runtime_error {
 class Video {
   private:
     std::string url;
-    bool inSync;
-    AVFormatContext *fmt_ctx;
+    bool inSync = false;
+    AVFormatContext *fmt_ctx = nullptr;
     void openIO();
     void dispose();
 
