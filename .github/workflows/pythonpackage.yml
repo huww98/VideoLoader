@@ -22,11 +22,11 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Install FFmpeg
       run: |
-        sudo apt update
-        sudo apt install libavcodec-dev libavformat-dev libavfilter-dev
+        sudo apt-get update
+        sudo apt-get install -y libavcodec-dev libavformat-dev libavfilter-dev
     - name: Install
       run: |
-        python install -e .
+        python -m pip install -e .
     - name: Test
       run: |
         python -m unittest
