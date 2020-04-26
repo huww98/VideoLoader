@@ -6,27 +6,37 @@ set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules)
 set(VIDEOLOADER_NAME "" CACHE STRING "videoloader output filename, specified by setup.py")
 set(VIDEOLOADER_DESTINATION "" CACHE PATH "videoloader output path, specified by setup.py")
 
-set(CXX_STANDARD 17)
-set(CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_compile_options(-Wall)
 
-find_package(Python COMPONENTS Development REQUIRED)
+set(VIDEO_LOADER_SRCS videoloader.cpp)
+if(VIDEOLOADER_NAME)
+    list(APPEND VIDEO_LOADER_SRCS index.cpp PyRef.cpp)
+    find_package(Python COMPONENTS Development REQUIRED)
+else()
+    message(WARNING "Use setup.py to build with python bindings.")
+    add_compile_options("$<$<CONFIG:DEBUG>:-fomit-frame-pointer;-fsanitize=address>")
+    add_link_options("$<$<CONFIG:DEBUG>:-fomit-frame-pointer;-fsanitize=address>")
+endif()
+
 find_package(AvCodec REQUIRED)
 find_package(AvFormat REQUIRED)
 find_package(AvFilter REQUIRED)
 
-add_library(videoloader SHARED PyRef.cpp videoloader.cpp index.cpp)
-target_link_libraries(videoloader PRIVATE Python::Module FFmpeg::AvCodec FFmpeg::AvFormat FFmpeg::AvFilter)
+add_library(videoloader SHARED "${VIDEO_LOADER_SRCS}")
+target_link_libraries(videoloader FFmpeg::AvCodec FFmpeg::AvFormat FFmpeg::AvFilter)
+
+add_executable(test_main main.cpp)
+target_link_libraries(test_main videoloader)
 
 if(VIDEOLOADER_NAME)
+    target_link_libraries(videoloader Python::Module)
     set_target_properties(videoloader PROPERTIES
         OUTPUT_NAME "${VIDEOLOADER_NAME}"
         LIBRARY_OUTPUT_DIRECTORY "${VIDEOLOADER_DESTINATION}"
         PREFIX ""
         SUFFIX "")
-else(VIDEOLOADER_NAME)
-    message(WARNING "Use setup.py to put binaries to correct location")
-endif(VIDEOLOADER_NAME)
 
-add_executable(test_main main.cpp)
-target_link_libraries(test_main Python::Python videoloader)
+    target_link_libraries(test_main Python::Python)
+endif()
