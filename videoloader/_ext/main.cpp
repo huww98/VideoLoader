@@ -12,10 +12,11 @@ int main(int argc, char const *argv[])
     VideoLoader loader;
     try {
         for (auto& f: std::filesystem::directory_iterator(base)) {
+            // cout << f.path() << endl;
             auto video = loader.addVideoFile(f.path());
             // video.sleep();
             video.getBatch({14, 15});
-            break;
+            // break;
         }
     } catch (std::runtime_error &e) {
         cerr << "[Excpetion]: " << e.what() << endl;

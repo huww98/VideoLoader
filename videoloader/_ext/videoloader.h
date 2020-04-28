@@ -7,6 +7,7 @@
 extern "C" {
 #include <libavformat/avformat.h>
 }
+#include "FileIO.h"
 
 namespace huww {
 namespace videoloader {
@@ -19,18 +20,18 @@ struct PacketIndexEntry {
 
 class Video {
   private:
-    std::string url;
+    AVIOContextPtr ioContext;
     AVFormatContext *fmt_ctx = nullptr;
     AVCodec *decoder = nullptr;
     int streamIndex = -1;
     /** Sorted by pts */
     std::vector<PacketIndexEntry> packetIndex;
-    void openIO();
     void dispose();
+    FileIO &getFileIO();
 
   public:
     Video(std::string url);
-    Video(Video &&other) noexcept { *this = std::move(other); }
+    Video(Video &&other) noexcept : ioContext(nullptr, nullptr) { *this = std::move(other); }
     Video &operator=(Video &&other) noexcept;
     Video(const Video &) = delete;
     Video &operator=(const Video &) = delete;
@@ -38,7 +39,7 @@ class Video {
 
     void sleep();
     void weakUp();
-    bool sleeping();
+    bool isSleeping();
 
     void getBatch(const std::vector<int> &frameIndices);
 };

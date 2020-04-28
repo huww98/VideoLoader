@@ -39,13 +39,13 @@ auto new_AVFrame() {
 }
 
 Video::Video(std::string url)
-    : url(url) {
+    : ioContext(newFileIOContext(url)) {
     this->fmt_ctx =
         CHECK_AV(avformat_alloc_context(), "Unable to alloc AVFormatContext");
 
     // Use custom IO, manage AVIOContext ourself to save memory and other
     // resources.
-    this->openIO();
+    this->fmt_ctx->pb = ioContext.get();
 
     CHECK_AV(avformat_open_input(&this->fmt_ctx, url.c_str(), nullptr, nullptr),
              "Unable to open input \"" << url << "\"");
@@ -66,7 +66,7 @@ Video::Video(std::string url)
         if (ret == AVERROR_EOF) {
             break;
         }
-        CHECK_AV(ret, "read frame failed.");
+        CHECK_AV(ret, "read frame failed");
         if (packet->stream_index != streamIndex) {
             continue;
         }
@@ -239,8 +239,8 @@ void Video::getBatch(const std::vector<int> &frameIndices) {
         while (!packetScheduler.finished()) {
             auto packet = packetScheduler.next();
             int ret = avcodec_send_packet(decodeContext.get(), packet);
-            std::cout << "Packet: " << packet->pts << " ret " << ret
-                      << std::endl;
+            // std::cout << "Packet: " << packet->pts << " ret " << ret
+            //           << std::endl;
             if (ret == AVERROR(EAGAIN)) {
                 break;
             }
@@ -260,7 +260,7 @@ void Video::getBatch(const std::vector<int> &frameIndices) {
             CHECK_AV(ret, "receive frame from decoder failed");
 
             // TODO: consume frame
-            std::cout << "Got frame: PTS: " << frame->pts << " flags: " << frame->flags << std::endl;
+            // std::cout << "Got frame: PTS: " << frame->pts << " flags: " << frame->flags << std::endl;
         }
     }
 }
@@ -270,8 +270,8 @@ Video &Video::operator=(Video &&other) noexcept {
         dispose();
         this->fmt_ctx = other.fmt_ctx;
         other.fmt_ctx = nullptr;
-        this->url = std::move(other.url);
         this->packetIndex = std::move(other.packetIndex);
+        this->ioContext = std::move(other.ioContext);
         this->decoder = other.decoder;
         this->streamIndex = other.streamIndex;
     }
@@ -286,25 +286,23 @@ void Video::dispose() {
     avformat_close_input(&this->fmt_ctx);
 }
 
-void Video::openIO() {
-    CHECK_AV(
-        avio_open2(&fmt_ctx->pb, url.c_str(), AVIO_FLAG_READ, nullptr, nullptr),
-        "Unable to open IO for input \"" << url << "\"");
+void Video::sleep() {
+    if (!isSleeping()) {
+        this->getFileIO().sleep();
+    }
 }
 
-void Video::sleep() {
-    if (!sleeping()) {
-        CHECK_AV(avio_closep(&fmt_ctx->pb), "Failed to close io");
-    }
+FileIO &Video::getFileIO() {
+    return *static_cast<FileIO *>(this->ioContext->opaque);
 }
 
 void Video::weakUp() {
-    if (this->sleeping()) {
-        this->openIO();
+    if (this->isSleeping()) {
+        this->getFileIO().weakUp();
     }
 }
 
-bool Video::sleeping() { return fmt_ctx->pb == nullptr; }
+bool Video::isSleeping() { return this->getFileIO().isSleeping(); }
 
 } // namespace videoloader
 } // namespace huww
