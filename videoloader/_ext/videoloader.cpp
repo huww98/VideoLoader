@@ -12,9 +12,7 @@
 namespace huww {
 namespace videoloader {
 
-Video VideoLoader::addVideoFile(std::string url) {
-    return Video(url);
-}
+Video VideoLoader::addVideoFile(std::string url) { return Video(url); }
 using AVCodecContextPtr =
     std::unique_ptr<AVCodecContext, void (*)(AVCodecContext *&&)>;
 
@@ -38,8 +36,7 @@ auto new_AVFrame() {
                       [](AVFrame *&&f) { av_frame_free(&f); });
 }
 
-Video::Video(std::string url)
-    : ioContext(newFileIOContext(url)) {
+Video::Video(std::string url) : ioContext(newFileIOContext(url)) {
     this->fmt_ctx =
         CHECK_AV(avformat_alloc_context(), "Unable to alloc AVFormatContext");
 
@@ -260,7 +257,8 @@ void Video::getBatch(const std::vector<int> &frameIndices) {
             CHECK_AV(ret, "receive frame from decoder failed");
 
             // TODO: consume frame
-            // std::cout << "Got frame: PTS: " << frame->pts << " flags: " << frame->flags << std::endl;
+            // std::cout << "Got frame: PTS: " << frame->pts << " flags: " <<
+            // frame->flags << std::endl;
         }
     }
 }
@@ -289,6 +287,7 @@ void Video::dispose() {
 void Video::sleep() {
     if (!isSleeping()) {
         this->getFileIO().sleep();
+        av_freep(&this->ioContext->buffer); // to save memory
     }
 }
 
@@ -299,6 +298,10 @@ FileIO &Video::getFileIO() {
 void Video::weakUp() {
     if (this->isSleeping()) {
         this->getFileIO().weakUp();
+        ioContext->buffer = (uint8_t *)av_malloc(IO_BUFFER_SIZE);
+        ioContext->buffer_size = ioContext->orig_buffer_size = IO_BUFFER_SIZE;
+        ioContext->buf_ptr = ioContext->buf_end = ioContext->buf_ptr_max =
+            ioContext->buffer;
     }
 }
 
