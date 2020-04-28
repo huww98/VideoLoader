@@ -18,10 +18,13 @@ def main():
 
     init_rss = rss = this_process.memory_info().rss
     print(rss)
+    videos = []
     for i, f in enumerate(files):
-        loader.add_video_file(f)
+        v = loader.add_video_file(f)
+        v.sleep()
+        videos.append(v)
         new_rss = this_process.memory_info().rss
-        print(f'{i:3d} RSS: {new_rss} (+{new_rss - rss})')
+        print(f'{i:3d} RSS: {new_rss} ({new_rss - rss:+08d})')
         rss = new_rss
 
     print(f'Average: {(rss - init_rss) / len(files) / 1024:.2f} KB/file' )

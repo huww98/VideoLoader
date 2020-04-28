@@ -27,13 +27,39 @@ static void PyVideo_dealloc(PyVideo *v) {
     Py_TYPE(v)->tp_free((PyObject *)v);
 }
 
+static PyObject *PyVideo_sleep(PyVideo *self, PyObject *args) {
+    try {
+        self->video.sleep();
+    } catch (std::exception &e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return nullptr;
+    }
+    return Py_None;
+}
+
+static PyObject *PyVideo_isSleeping(PyVideo *self, PyObject *args) {
+    try {
+        return self->video.isSleeping() ? Py_True : Py_False;
+    } catch (std::exception &e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return nullptr;
+    }
+}
+
+static PyMethodDef Video_methods[] = {
+    {"sleep", (PyCFunction)PyVideo_sleep, METH_NOARGS, nullptr},
+    {"is_sleeping", (PyCFunction)PyVideo_isSleeping, METH_NOARGS, nullptr},
+    {nullptr},
+};
+
 static PyTypeObject PyVideoType = {
-    .ob_base = PyVarObject_HEAD_INIT(NULL, 0) // clang-format off
+    .ob_base = PyVarObject_HEAD_INIT(nullptr, 0) // clang-format off
     .tp_name = "videoloader._ext._Video", // clang-format on
     .tp_basicsize = sizeof(PyVideo),
     .tp_itemsize = 0,
     .tp_dealloc = (destructor)PyVideo_dealloc,
     .tp_flags = Py_TPFLAGS_DEFAULT,
+    .tp_methods = Video_methods,
 };
 
 struct PyVideoLoader {
@@ -62,7 +88,8 @@ static PyObject *VideoLoader_AddVideoFile(PyVideoLoader *self, PyObject *args) {
         OwnedPyRef pyVideo = _PyObject_New(&PyVideoType);
         if (pyVideo.get() == nullptr)
             return nullptr;
-        new (&((PyVideo *)pyVideo.get())->video) videoloader::Video(std::move(video));
+        new (&((PyVideo *)pyVideo.get())->video)
+            videoloader::Video(std::move(video));
         return pyVideo.transfer();
     } catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
@@ -73,11 +100,11 @@ static PyObject *VideoLoader_AddVideoFile(PyVideoLoader *self, PyObject *args) {
 static PyMethodDef VideoLoader_methods[] = {
     {"add_video_file", (PyCFunction)VideoLoader_AddVideoFile, METH_VARARGS,
      nullptr},
-    {NULL},
+    {nullptr},
 };
 
 static PyTypeObject PyVideoLoaderType = {
-    .ob_base = PyVarObject_HEAD_INIT(NULL, 0) // clang-format off
+    .ob_base = PyVarObject_HEAD_INIT(nullptr, 0) // clang-format off
     .tp_name = "videoloader._ext._VideoLoader", // clang-format on
     .tp_basicsize = sizeof(PyVideoLoader),
     .tp_itemsize = 0,
