@@ -57,14 +57,14 @@ static PyObject *VideoLoader_AddVideoFile(PyVideoLoader *self, PyObject *args) {
     }
 
     try {
-        PyVideo *pyVideo = PyObject_New(PyVideo, &PyVideoType);
-        if (pyVideo == nullptr)
-            return nullptr;
+        auto video = self->videoLoader.addVideoFile(file_path_str);
 
-        new (&pyVideo->video)
-            videoloader::Video(self->videoLoader.addVideoFile(file_path_str));
-        return (PyObject *)pyVideo;
-    } catch (std::runtime_error &e) {
+        OwnedPyRef pyVideo = _PyObject_New(&PyVideoType);
+        if (pyVideo.get() == nullptr)
+            return nullptr;
+        new (&((PyVideo *)pyVideo.get())->video) videoloader::Video(std::move(video));
+        return pyVideo.transfer();
+    } catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return nullptr;
     }

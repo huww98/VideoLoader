@@ -2,6 +2,7 @@
 
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 extern "C" {
 #include <libavformat/avformat.h>
@@ -10,23 +11,27 @@ extern "C" {
 namespace huww {
 namespace videoloader {
 
-class AvError : public std::runtime_error {
-  public:
-    AvError(int errorCode, std::string message);
+struct PacketIndexEntry {
+    int64_t pts;
+    int keyFrameIndex;
+    int packetIndex;
 };
 
 class Video {
   private:
     std::string url;
-    bool inSync = false;
     AVFormatContext *fmt_ctx = nullptr;
+    AVCodec *decoder = nullptr;
+    int streamIndex = -1;
+    /** Sorted by pts */
+    std::vector<PacketIndexEntry> packetIndex;
     void openIO();
     void dispose();
 
   public:
     Video(std::string url);
-    Video(Video &&other) { *this = std::move(other); }
-    Video &operator=(Video &&other);
+    Video(Video &&other) noexcept { *this = std::move(other); }
+    Video &operator=(Video &&other) noexcept;
     Video(const Video &) = delete;
     Video &operator=(const Video &) = delete;
     ~Video() { this->dispose(); }
@@ -34,6 +39,8 @@ class Video {
     void sleep();
     void weakUp();
     bool sleeping();
+
+    void getBatch(const std::vector<int> &frameIndices);
 };
 
 class VideoLoader {
