@@ -35,6 +35,15 @@ void FileIO::weakUp() {
 
 int FileIO::read(uint8_t *buf, int size) {
     fstream.read((char *)buf, size);
+    if (fstream.eof()) {
+        fstream.clear();
+        if (fstream.gcount() == 0) {
+            return AVERROR_EOF;
+        }
+    }
+    if(!fstream) {
+        return AVERROR(errno);
+    }
     return fstream.gcount();
 }
 
@@ -53,8 +62,10 @@ int64_t FileIO::seek(int64_t pos, int whence) {
     default:
         return -1;
     }
-    fstream.clear();
     fstream.seekg(pos, dir);
+    if (!fstream) {
+        return AVERROR(errno);
+    }
     return fstream.tellg();
 }
 
