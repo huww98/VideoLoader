@@ -1,9 +1,16 @@
 #include "FileIO.h"
 
+#include <sstream>
+
 namespace huww {
 
 void FileIO::openIO() {
     fstream.open(filePath, std::fstream::in | std::fstream::binary);
+    if (!fstream) {
+        std::ostringstream msg;
+        msg << "Unable to open file \"" << filePath << "\"";
+        throw std::system_error(errno, std::system_category(), msg.str());
+    }
 }
 
 FileIO::FileIO(std::string filePath) : filePath(filePath), lastPos(0) {
