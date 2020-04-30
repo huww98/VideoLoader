@@ -1,12 +1,17 @@
 #pragma once
 
-#include <string>
-#include <stdexcept>
+#include <memory>
 #include <sstream>
+#include <stdexcept>
+#include <string>
 
 extern "C" {
-    #include <libavutil/error.h>
+#include <libavutil/error.h>
+#include <libavutil/frame.h>
 }
+
+namespace huww {
+namespace videoloader {
 
 class AvError : public std::runtime_error {
   public:
@@ -26,3 +31,13 @@ inline int check_av(void *ptr) { return ptr == nullptr ? AVERROR(ENOMEM) : 0; }
         }                                                                      \
         return __ret;                                                          \
     }()
+
+using AVFramePtr = std::unique_ptr<AVFrame, void (*)(AVFrame *&&)>;
+
+inline auto allocAVFrame() {
+    return AVFramePtr(CHECK_AV(av_frame_alloc(), "alloc AVFrame failed"),
+                      [](AVFrame *&&f) { av_frame_free(&f); });
+}
+
+} // namespace videoloader
+} // namespace huww

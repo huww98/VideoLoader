@@ -9,6 +9,7 @@ extern "C" {
 }
 
 #include "AVFormat.h"
+#include "AVFilterGraph.h"
 
 namespace huww {
 namespace videoloader {

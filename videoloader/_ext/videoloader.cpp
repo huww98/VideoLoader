@@ -24,16 +24,9 @@ auto new_AVCodecContext(const AVCodec *codec) {
 
 using AVPacketPtr = std::unique_ptr<AVPacket, void (*)(AVPacket *&&)>;
 
-auto new_AVPacket() {
+auto allocAVPacket() {
     return AVPacketPtr(CHECK_AV(av_packet_alloc(), "alloc AVPacket failed"),
                        [](AVPacket *&&p) { av_packet_free(&p); });
-}
-
-using AVFramePtr = std::unique_ptr<AVFrame, void (*)(AVFrame *&&)>;
-
-auto new_AVFrame() {
-    return AVFramePtr(CHECK_AV(av_frame_alloc(), "alloc AVFrame failed"),
-                      [](AVFrame *&&f) { av_frame_free(&f); });
 }
 
 Video::Video(std::string url) : format(url) {
@@ -45,7 +38,7 @@ Video::Video(std::string url) : format(url) {
                                                -1, &this->decoder, 0),
                            "Unable to find video stream for \"" << url << "\"");
 
-    auto packet = new_AVPacket();
+    auto packet = allocAVPacket();
 
     int lastKeyFrameIndex = -1;
     int nextPacketIndex = 0;
@@ -117,7 +110,7 @@ class VideoPacketScheduler {
     VideoPacketScheduler(const std::vector<int> &frameIndicesRequested,
                          const std::vector<PacketIndexEntry> &index,
                          AVFormatContext *fmt_ctx, int streamIndex)
-        : fmt_ctx(fmt_ctx), streamIndex(streamIndex), packet(new_AVPacket()) {
+        : fmt_ctx(fmt_ctx), streamIndex(streamIndex), packet(allocAVPacket()) {
         for (int f : frameIndicesRequested) {
             auto &pktIndex = index[f];
             auto &entry = schedule[pktIndex.keyFrameIndex];
@@ -222,7 +215,9 @@ void Video::getBatch(const std::vector<int> &frameIndices) {
     CHECK_AV(avcodec_open2(decodeContext.get(), decoder, nullptr),
              "open decoder failed");
 
-    auto frame = new_AVFrame();
+    AVFilterGraph fg(*decodeContext.get(), fmt_ctx->streams[streamIndex]->time_base);
+
+    auto frame = allocAVFrame();
 
     bool eof = false;
     while (!eof) {
@@ -250,8 +245,10 @@ void Video::getBatch(const std::vector<int> &frameIndices) {
             CHECK_AV(ret, "receive frame from decoder failed");
 
             // TODO: consume frame
-            // std::cout << "Got frame: PTS: " << frame->pts << " flags: " <<
-            // frame->flags << std::endl;
+            std::cout << "Got frame:      " << frame->width << 'x' << frame->height << " PTS: " << frame->pts << " flags: " << frame->flags << std::endl;
+            auto filtedFrame = fg.processFrame(frame.get());
+            std::cout << "Filtered frame: " << filtedFrame->width << 'x' << filtedFrame->height << " PTS: " << filtedFrame->pts << " flags: " << filtedFrame->flags << std::endl;
+            av_frame_unref(filtedFrame);
         }
     }
 }
