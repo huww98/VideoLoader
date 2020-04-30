@@ -10,7 +10,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_compile_options(-Wall)
 
-set(VIDEO_LOADER_SRCS videoloader.cpp av_utils.cpp AVFormat.cpp FileIO.cpp AVFilterGraph.cpp)
+set(VIDEO_LOADER_SRCS videoloader.cpp av_utils.cpp AVFormat.cpp FileIO.cpp AVFilterGraph.cpp DLPack.cpp)
 if(VIDEOLOADER_NAME)
     list(APPEND VIDEO_LOADER_SRCS index.cpp PyRef.cpp)
     find_package(Python COMPONENTS Development REQUIRED)

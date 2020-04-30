@@ -1,6 +1,7 @@
 #include "videoloader.h"
 
 #include <algorithm>
+#include <assert.h>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -185,7 +186,7 @@ struct FrameRequest {
     int64_t pts;
 };
 
-void Video::getBatch(const std::vector<int> &frameIndices) {
+VideoDLPack Video::getBatch(const std::vector<int> &frameIndices) {
     this->weakUp();
 
     std::vector<FrameRequest> request(frameIndices.size());
@@ -215,7 +216,10 @@ void Video::getBatch(const std::vector<int> &frameIndices) {
     CHECK_AV(avcodec_open2(decodeContext.get(), decoder, nullptr),
              "open decoder failed");
 
-    AVFilterGraph fg(*decodeContext.get(), fmt_ctx->streams[streamIndex]->time_base);
+    AVFilterGraph fg(*decodeContext.get(),
+                     fmt_ctx->streams[streamIndex]->time_base);
+    VideoDLPack pack(request.size());
+    auto nextRequest = request.cbegin();
 
     auto frame = allocAVFrame();
 
@@ -245,12 +249,27 @@ void Video::getBatch(const std::vector<int> &frameIndices) {
             CHECK_AV(ret, "receive frame from decoder failed");
 
             // TODO: consume frame
-            std::cout << "Got frame:      " << frame->width << 'x' << frame->height << " PTS: " << frame->pts << " flags: " << frame->flags << std::endl;
-            auto filtedFrame = fg.processFrame(frame.get());
-            std::cout << "Filtered frame: " << filtedFrame->width << 'x' << filtedFrame->height << " PTS: " << filtedFrame->pts << " flags: " << filtedFrame->flags << std::endl;
-            av_frame_unref(filtedFrame);
+            // std::cout << "Got frame:      " << frame->width << 'x' <<
+            // frame->height << " PTS: " << frame->pts << " flags: " <<
+            // frame->flags << std::endl;
+            if (frame->pts == nextRequest->pts) {
+                auto filteredFrame = fg.processFrame(frame.get());
+                // std::cout << "Filtered frame: " << filteredFrame->width <<
+                // 'x' << filteredFrame->height << " PTS: " <<
+                // filteredFrame->pts << " flags: " << filteredFrame->flags <<
+                // std::endl;
+                pack.addFrame(filteredFrame, nextRequest->requestIndex);
+                av_frame_unref(filteredFrame);
+                nextRequest++;
+                if (nextRequest == request.cend()) {
+                    eof = true;
+                    break;
+                }
+            }
         }
     }
+    assert(nextRequest == request.cend());
+    return pack;
 }
 
 void Video::sleep() { this->format.sleep(); }

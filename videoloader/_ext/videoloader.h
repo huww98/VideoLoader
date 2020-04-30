@@ -10,6 +10,7 @@ extern "C" {
 
 #include "AVFormat.h"
 #include "AVFilterGraph.h"
+#include "DLPack.h"
 
 namespace huww {
 namespace videoloader {
@@ -35,7 +36,7 @@ class Video {
     void weakUp();
     bool isSleeping();
 
-    void getBatch(const std::vector<int> &frameIndices);
+    VideoDLPack getBatch(const std::vector<int> &frameIndices);
 };
 
 class VideoLoader {
