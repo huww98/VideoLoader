@@ -36,17 +36,8 @@ auto new_AVFrame() {
                       [](AVFrame *&&f) { av_frame_free(&f); });
 }
 
-Video::Video(std::string url) : ioContext(newFileIOContext(url)) {
-    this->fmt_ctx =
-        CHECK_AV(avformat_alloc_context(), "Unable to alloc AVFormatContext");
-
-    // Use custom IO, manage AVIOContext ourself to save memory and other
-    // resources.
-    this->fmt_ctx->pb = ioContext.get();
-
-    CHECK_AV(avformat_open_input(&this->fmt_ctx, url.c_str(), nullptr, nullptr),
-             "Unable to open input \"" << url << "\"");
-
+Video::Video(std::string url) : format(url) {
+    auto fmt_ctx = format.formatContext();
     CHECK_AV(avformat_find_stream_info(fmt_ctx, nullptr),
              "find stream info failed");
 
@@ -218,8 +209,10 @@ void Video::getBatch(const std::vector<int> &frameIndices) {
     std::sort(request.begin(), request.end(),
               [](FrameRequest &a, FrameRequest &b) { return a.pts < b.pts; });
 
-    VideoPacketScheduler packetScheduler(frameIndices, packetIndex,
-                                         this->fmt_ctx, this->streamIndex);
+    auto fmt_ctx = format.formatContext();
+
+    VideoPacketScheduler packetScheduler(frameIndices, packetIndex, fmt_ctx,
+                                         this->streamIndex);
 
     auto decodeContext = new_AVCodecContext(decoder);
 
@@ -263,49 +256,11 @@ void Video::getBatch(const std::vector<int> &frameIndices) {
     }
 }
 
-Video &Video::operator=(Video &&other) noexcept {
-    if (this != &other) {
-        dispose();
-        this->fmt_ctx = other.fmt_ctx;
-        other.fmt_ctx = nullptr;
-        this->packetIndex = std::move(other.packetIndex);
-        this->ioContext = std::move(other.ioContext);
-        this->decoder = other.decoder;
-        this->streamIndex = other.streamIndex;
-    }
-    return *this;
-}
+void Video::sleep() { this->format.sleep(); }
 
-void Video::dispose() {
-    if (this->fmt_ctx == nullptr) {
-        return; // Moved.
-    }
-    this->sleep();
-    avformat_close_input(&this->fmt_ctx);
-}
+void Video::weakUp() { this->format.weakUp(); }
 
-void Video::sleep() {
-    if (!isSleeping()) {
-        this->getFileIO().sleep();
-        av_freep(&this->ioContext->buffer); // to save memory
-    }
-}
-
-FileIO &Video::getFileIO() {
-    return *static_cast<FileIO *>(this->ioContext->opaque);
-}
-
-void Video::weakUp() {
-    if (this->isSleeping()) {
-        this->getFileIO().weakUp();
-        ioContext->buffer = (uint8_t *)av_malloc(IO_BUFFER_SIZE);
-        ioContext->buffer_size = ioContext->orig_buffer_size = IO_BUFFER_SIZE;
-        ioContext->buf_ptr = ioContext->buf_end = ioContext->buf_ptr_max =
-            ioContext->buffer;
-    }
-}
-
-bool Video::isSleeping() { return this->getFileIO().isSleeping(); }
+bool Video::isSleeping() { return this->format.isSleeping(); }
 
 } // namespace videoloader
 } // namespace huww

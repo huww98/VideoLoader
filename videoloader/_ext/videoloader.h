@@ -5,9 +5,10 @@
 #include <vector>
 
 extern "C" {
-#include <libavformat/avformat.h>
+    #include <libavcodec/avcodec.h>
 }
-#include "FileIO.h"
+
+#include "AVFormat.h"
 
 namespace huww {
 namespace videoloader {
@@ -20,22 +21,14 @@ struct PacketIndexEntry {
 
 class Video {
   private:
-    AVIOContextPtr ioContext;
-    AVFormatContext *fmt_ctx = nullptr;
+    AVFormat format;
     AVCodec *decoder = nullptr;
     int streamIndex = -1;
     /** Sorted by pts */
     std::vector<PacketIndexEntry> packetIndex;
-    void dispose();
-    FileIO &getFileIO();
 
   public:
     Video(std::string url);
-    Video(Video &&other) noexcept : ioContext(nullptr, nullptr) { *this = std::move(other); }
-    Video &operator=(Video &&other) noexcept;
-    Video(const Video &) = delete;
-    Video &operator=(const Video &) = delete;
-    ~Video() { this->dispose(); }
 
     void sleep();
     void weakUp();

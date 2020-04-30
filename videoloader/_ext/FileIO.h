@@ -9,6 +9,11 @@ extern "C" {
 }
 
 namespace huww {
+namespace videoloader {
+
+using AVIOContextPtr = std::unique_ptr<AVIOContext, void (*)(AVIOContext *&&c)>;
+constexpr int IO_BUFFER_SIZE = 32768;
+
 class FileIO {
   private:
     std::string filePath;
@@ -26,14 +31,9 @@ class FileIO {
 
     int read(uint8_t *buf, int size);
     int64_t seek(int64_t pos, int whence);
+
+    static AVIOContextPtr newAVIOContext(std::string filePath);
 };
-
-namespace videoloader {
-
-using AVIOContextPtr = std::unique_ptr<AVIOContext, void (*)(AVIOContext *&&c)>;
-constexpr int IO_BUFFER_SIZE = 32768;
-
-AVIOContextPtr newFileIOContext(std::string filePath);
 
 } // namespace videoloader
 } // namespace huww

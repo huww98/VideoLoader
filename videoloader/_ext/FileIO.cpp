@@ -3,6 +3,7 @@
 #include <sstream>
 
 namespace huww {
+namespace videoloader {
 
 void FileIO::openIO() {
     fstream.open(filePath, std::fstream::in | std::fstream::binary);
@@ -69,8 +70,7 @@ int64_t FileIO::seek(int64_t pos, int whence) {
     return fstream.tellg();
 }
 
-namespace videoloader {
-AVIOContextPtr newFileIOContext(std::string filePath) {
+AVIOContextPtr FileIO::newAVIOContext(std::string filePath) {
     uint8_t *buffer = (uint8_t *)av_malloc(IO_BUFFER_SIZE);
     auto io = new FileIO(filePath);
     return AVIOContextPtr(

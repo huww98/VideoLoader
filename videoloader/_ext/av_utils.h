@@ -2,6 +2,7 @@
 
 #include <string>
 #include <stdexcept>
+#include <sstream>
 
 extern "C" {
     #include <libavutil/error.h>
