@@ -23,7 +23,7 @@ class VideoDLPack {
     VideoDLPack(int numFrames);
     void addFrame(AVFrame *frame, int index);
 
-    DLTensor *release() { return dlTensor.release(); }
+    DLTensor *release() noexcept { return dlTensor.release(); }
 };
 
 } // namespace videoloader

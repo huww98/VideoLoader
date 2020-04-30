@@ -26,7 +26,7 @@ void VideoDLPack::addFrame(AVFrame *frame, int index) {
                     .lanes = 1,
                 },
             .shape = new int64_t[4]{numFrames, frame->width, frame->height, 3},
-            .strides = new int64_t[4]{linesize * frame->width, linesize, 3, 1},
+            .strides = new int64_t[4]{frameSize, linesize, 3, 1},
             .byte_offset = 0,
         });
     }

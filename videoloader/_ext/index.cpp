@@ -46,9 +46,48 @@ static PyObject *PyVideo_isSleeping(PyVideo *self, PyObject *args) {
     }
 }
 
+static auto dlTensorCapsuleName = "dltensor";
+
+static PyObject *PyVideo_getBatch(PyVideo *self, PyObject *args) {
+    OwnedPyRef iterator = PyObject_GetIter(args);
+    if (iterator.get() == nullptr) {
+        return nullptr;
+    }
+    std::vector<int> indices;
+    while (true) {
+        OwnedPyRef item = PyIter_Next(iterator.get());
+        if (PyErr_Occurred()) {
+            return nullptr;
+        }
+        if (item.get() == nullptr) {
+            break;
+        }
+        auto idx = PyLong_AsLong(item.get());
+        if (PyErr_Occurred()) {
+            return nullptr;
+        }
+        indices.push_back(idx);
+    }
+
+    try {
+        auto dlPack = self->video.getBatch(indices);
+        return PyCapsule_New(
+            dlPack.release(), dlTensorCapsuleName, [](PyObject *cap) {
+                auto p = PyCapsule_GetPointer(cap, dlTensorCapsuleName);
+                if (p != nullptr) {
+                    videoloader::VideoDLPack::free(static_cast<DLTensor *>(p));
+                }
+            });
+    } catch (std::exception &e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return nullptr;
+    }
+}
+
 static PyMethodDef Video_methods[] = {
     {"sleep", (PyCFunction)PyVideo_sleep, METH_NOARGS, nullptr},
     {"is_sleeping", (PyCFunction)PyVideo_isSleeping, METH_NOARGS, nullptr},
+    {"get_batch", (PyCFunction)PyVideo_getBatch, METH_O, nullptr},
     {nullptr},
 };
 
