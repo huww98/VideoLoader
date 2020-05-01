@@ -6,7 +6,7 @@ namespace huww {
 namespace videoloader {
 
 VideoDLPack::VideoDLPack(int numFrames)
-    : numFrames(numFrames), dlTensor(nullptr, &VideoDLPack::free) {}
+    : numFrames(numFrames), dlTensor(nullptr, [](auto t) { t->deleter(t); }) {}
 
 void VideoDLPack::addFrame(AVFrame *frame, int index) {
     assert(index < numFrames);
@@ -15,33 +15,41 @@ void VideoDLPack::addFrame(AVFrame *frame, int index) {
     auto frameSize = linesize * frame->height;
 
     if (!dlTensor) {
-        dlTensor.reset(new DLTensor{
-            .data = new uint8_t[frameSize * numFrames],
-            .ctx = {.device_type = kDLCPU},
-            .ndim = 4, // frame, width, height, channel
-            .dtype =
+        dlTensor.reset(new DLManagedTensor{
+            .dl_tensor =
                 {
-                    .code = kDLUInt,
-                    .bits = 8,
-                    .lanes = 1,
+                    .data = new uint8_t[frameSize * numFrames],
+                    .ctx = {.device_type = kDLCPU},
+                    .ndim = 4, // frame, width, height, channel
+                    .dtype =
+                        {
+                            .code = kDLUInt,
+                            .bits = 8,
+                            .lanes = 1,
+                        },
+                    .shape = new int64_t[4]{numFrames, frame->width,
+                                            frame->height, 3},
+                    .strides = new int64_t[4]{frameSize, linesize, 3, 1},
+                    .byte_offset = 0,
                 },
-            .shape = new int64_t[4]{numFrames, frame->width, frame->height, 3},
-            .strides = new int64_t[4]{frameSize, linesize, 3, 1},
-            .byte_offset = 0,
+            .manager_ctx = nullptr,
+            .deleter = &VideoDLPack::free,
         });
     }
-    assert(linesize == dlTensor->strides[1]);
-    assert(frame->width == dlTensor->shape[1]);
-    assert(frame->height == dlTensor->shape[2]);
+    auto &dl = dlTensor->dl_tensor;
+    assert(linesize == dl.strides[1]);
+    assert(frame->width == dl.shape[1]);
+    assert(frame->height == dl.shape[2]);
 
-    auto dest = static_cast<uint8_t *>(dlTensor->data) + frameSize * index;
+    auto dest = static_cast<uint8_t *>(dl.data) + frameSize * index;
     memcpy(dest, frame->data[0], frameSize);
 }
 
-void VideoDLPack::free(DLTensor *dlTensor) {
-    delete[] dlTensor->shape;
-    delete[] dlTensor->strides;
-    delete[] static_cast<uint8_t *>(dlTensor->data);
+void VideoDLPack::free(DLManagedTensor *dlTensor) {
+    auto &dl = dlTensor->dl_tensor;
+    delete[] dl.shape;
+    delete[] dl.strides;
+    delete[] static_cast<uint8_t *>(dl.data);
     delete dlTensor;
 }
 

@@ -13,17 +13,17 @@ namespace videoloader {
 
 class VideoDLPack {
   public:
-    static void free(DLTensor *);
+    static void free(DLManagedTensor *);
 
   private:
     int numFrames;
-    std::unique_ptr<DLTensor, decltype(&VideoDLPack::free)> dlTensor;
+    std::unique_ptr<DLManagedTensor, decltype(&VideoDLPack::free)> dlTensor;
 
   public:
     VideoDLPack(int numFrames);
     void addFrame(AVFrame *frame, int index);
 
-    DLTensor *release() noexcept { return dlTensor.release(); }
+    DLManagedTensor *release() noexcept { return dlTensor.release(); }
 };
 
 } // namespace videoloader

@@ -75,7 +75,8 @@ static PyObject *PyVideo_getBatch(PyVideo *self, PyObject *args) {
             dlPack.release(), dlTensorCapsuleName, [](PyObject *cap) {
                 auto p = PyCapsule_GetPointer(cap, dlTensorCapsuleName);
                 if (p != nullptr) {
-                    videoloader::VideoDLPack::free(static_cast<DLTensor *>(p));
+                    auto dlTensor = static_cast<DLManagedTensor *>(p);
+                    dlTensor->deleter(dlTensor);
                 }
             });
     } catch (std::exception &e) {
