@@ -21,6 +21,7 @@ class OwnedPyRef {
     PyObject *ptr;
 
   public:
+    OwnedPyRef() : ptr(nullptr) {}
     OwnedPyRef(PyObject *ref) : ptr(ref) {}
     OwnedPyRef(BorrowedPyRef &ref);
 

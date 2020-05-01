@@ -1,6 +1,6 @@
 {
     "cmake.sourceDirectory": "${workspaceFolder}/videoloader/_ext",
-    "cmake.buildDirectory": "${workspaceFolder}/build/temp.linux-x86_64-3.7",
+    "cmake.buildDirectory": "${workspaceFolder}/build/temp.linux-x86_64-3.8",
     "python.testing.unittestArgs": [
         "-v",
         "-s",

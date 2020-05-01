@@ -29,7 +29,7 @@ void VideoDLPack::addFrame(AVFrame *frame, int index) {
                         },
                     .shape = new int64_t[4]{numFrames, frame->width,
                                             frame->height, 3},
-                    .strides = new int64_t[4]{frameSize, linesize, 3, 1},
+                    .strides = new int64_t[4]{frameSize, 3, linesize, 1},
                     .byte_offset = 0,
                 },
             .manager_ctx = nullptr,
@@ -37,7 +37,7 @@ void VideoDLPack::addFrame(AVFrame *frame, int index) {
         });
     }
     auto &dl = dlTensor->dl_tensor;
-    assert(linesize == dl.strides[1]);
+    assert(linesize == dl.strides[2]);
     assert(frame->width == dl.shape[1]);
     assert(frame->height == dl.shape[2]);
 

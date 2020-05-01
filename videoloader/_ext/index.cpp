@@ -1,12 +1,31 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
+#include <numpy/arrayobject.h>
 
 #include "PyRef.h"
 #include "videoloader.h"
 
 using namespace huww;
 
-static PyMethodDef videoLoaderMethods[] = {{NULL, NULL, 0, NULL}};
+static auto dlTensorCapsuleName = "dltensor";
+
+static PyObject *DLTensor_to_numpy(PyObject *unused, PyObject *args) {
+    auto p = PyCapsule_GetPointer(args, dlTensorCapsuleName);
+    if (p == nullptr) {
+        PyErr_SetString(PyExc_ValueError, "No compatible DLTensor found.");
+        return nullptr;
+    }
+    auto dlManager = static_cast<DLManagedTensor *>(p);
+    auto &dl = dlManager->dl_tensor;
+    OwnedPyRef array = PyArray_New(&PyArray_Type, dl.ndim, dl.shape, NPY_UINT8,
+                                   dl.strides, dl.data, 0, 0, args);
+    return array.transfer();
+}
+
+static PyMethodDef videoLoaderMethods[] = {
+    {"dltensor_to_numpy", DLTensor_to_numpy, METH_O, nullptr},
+    {NULL, NULL, 0, NULL},
+};
 
 static struct PyModuleDef videoLoaderModule = {
     .m_base = PyModuleDef_HEAD_INIT,
@@ -46,8 +65,6 @@ static PyObject *PyVideo_isSleeping(PyVideo *self, PyObject *args) {
     }
 }
 
-static auto dlTensorCapsuleName = "dltensor";
-
 static PyObject *PyVideo_getBatch(PyVideo *self, PyObject *args) {
     OwnedPyRef iterator = PyObject_GetIter(args);
     if (iterator.get() == nullptr) {
@@ -73,7 +90,7 @@ static PyObject *PyVideo_getBatch(PyVideo *self, PyObject *args) {
         auto dlPack = self->video.getBatch(indices);
         return PyCapsule_New(
             dlPack.release(), dlTensorCapsuleName, [](PyObject *cap) {
-                if (strcmp(PyCapsule_GetName(cap), dlTensorCapsuleName) != 0){
+                if (strcmp(PyCapsule_GetName(cap), dlTensorCapsuleName) != 0) {
                     return; // used.
                 }
                 auto p = PyCapsule_GetPointer(cap, dlTensorCapsuleName);
@@ -166,6 +183,8 @@ PyMODINIT_FUNC PyInit__ext(void) {
     OwnedPyRef m = PyModule_Create(&videoLoaderModule);
     if (m.get() == nullptr)
         return nullptr;
+
+    import_array(); // import numpy
 
     if (PyModule_AddObject(m.get(), "_VideoLoader", loaderType.get()) < 0) {
         return nullptr;

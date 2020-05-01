@@ -10,10 +10,18 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_compile_options(-Wall)
 
-set(VIDEO_LOADER_SRCS videoloader.cpp av_utils.cpp AVFormat.cpp FileIO.cpp AVFilterGraph.cpp VideoDLPack.cpp)
+set(VIDEO_LOADER_SRCS
+    videoloader.cpp
+    av_utils.cpp
+    AVFormat.cpp
+    FileIO.cpp
+    AVFilterGraph.cpp
+    VideoDLPack.cpp)
 if(VIDEOLOADER_NAME)
-    list(APPEND VIDEO_LOADER_SRCS index.cpp PyRef.cpp)
-    find_package(Python COMPONENTS Development REQUIRED)
+    list(APPEND VIDEO_LOADER_SRCS
+        index.cpp
+        PyRef.cpp)
+    find_package(Python COMPONENTS Development NumPy REQUIRED)
 else()
     message(WARNING "Use setup.py to build with python bindings.")
     add_compile_options("$<$<CONFIG:DEBUG>:-fomit-frame-pointer;-fsanitize=address>")
@@ -33,7 +41,8 @@ add_executable(test_main main.cpp)
 target_link_libraries(test_main videoloader)
 
 if(VIDEOLOADER_NAME)
-    target_link_libraries(videoloader Python::Module)
+    target_link_libraries(videoloader Python::Module Python::NumPy)
+    target_compile_definitions(videoloader PRIVATE NPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION)
     set_target_properties(videoloader PROPERTIES
         OUTPUT_NAME "${VIDEOLOADER_NAME}"
         LIBRARY_OUTPUT_DIRECTORY "${VIDEOLOADER_DESTINATION}"
