@@ -73,11 +73,12 @@ static PyObject *PyVideo_getBatch(PyVideo *self, PyObject *args) {
         auto dlPack = self->video.getBatch(indices);
         return PyCapsule_New(
             dlPack.release(), dlTensorCapsuleName, [](PyObject *cap) {
-                auto p = PyCapsule_GetPointer(cap, dlTensorCapsuleName);
-                if (p != nullptr) {
-                    auto dlTensor = static_cast<DLManagedTensor *>(p);
-                    dlTensor->deleter(dlTensor);
+                if (strcmp(PyCapsule_GetName(cap), dlTensorCapsuleName) != 0){
+                    return; // used.
                 }
+                auto p = PyCapsule_GetPointer(cap, dlTensorCapsuleName);
+                auto dlTensor = static_cast<DLManagedTensor *>(p);
+                dlTensor->deleter(dlTensor);
             });
     } catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
