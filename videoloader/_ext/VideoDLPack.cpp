@@ -1,4 +1,4 @@
-#include "DLPack.h"
+#include "VideoDLPack.h"
 
 #include <assert.h>
 

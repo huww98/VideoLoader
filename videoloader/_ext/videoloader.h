@@ -10,7 +10,7 @@ extern "C" {
 
 #include "AVFormat.h"
 #include "AVFilterGraph.h"
-#include "DLPack.h"
+#include "VideoDLPack.h"
 
 namespace huww {
 namespace videoloader {
