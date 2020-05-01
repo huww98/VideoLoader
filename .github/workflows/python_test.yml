@@ -28,9 +28,12 @@ jobs:
     - name: Install PyTorch
       run: |
         pip install torch==1.5.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
+    - name: Install PyAV
+      run: |
+        MAKEFLAGS="-j$(nproc)" python -m pip install av --no-binary av
     - name: Install
       run: |
-        CXX=clang++-9 python -m pip install --verbose --editable .
+        CXX=clang++-9 MAKEFLAGS="-j$(nproc)" python -m pip install --verbose --editable .
     - name: Test
       run: |
         python -m unittest

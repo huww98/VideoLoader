@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 from setuptools import setup, Extension, find_packages
 from setuptools.command.build_ext import build_ext as _build_ext
@@ -25,19 +26,25 @@ class build_ext(_build_ext):
         ext_path.parent.mkdir(parents=True, exist_ok=True)
 
         config = 'Debug' if self.debug else 'Release'
+        py_ver = sys.version_info
         cmake_args = [
             '-S', str(ext.cmake_root),
             '-B', str(build_temp),
-            '-DCMAKE_BUILD_TYPE=' + config,
-            f'-D{ext.target.upper()}_DESTINATION={ext_path.parent}',
-            f'-D{ext.target.upper()}_NAME={ext_path.name}',
+            f'-DPython_VERSION={py_ver.major}.{py_ver.minor}',
+            f'-DPython_ROOT_DIR={sys.prefix}',
+            '-DPython_FIND_STRATEGY=LOCATION',
+            f'-DCMAKE_BUILD_TYPE={config}',
+            f'-D{ext.target}_DESTINATION={ext_path.parent}',
+            f'-D{ext.target}_NAME={ext_path.name}',
         ]
 
         build_args = [
             '--config', config,
             '--target', ext.target,
-            '--', '-j4'
+            '--',
         ]
+        if self.parallel is not None:
+            build_args.extend(['-j', str(self.parallel)])
 
         self.spawn(['cmake', ] + cmake_args)
         if not self.dry_run:
