@@ -118,13 +118,14 @@ static PyTypeObject PyVideoType = {
     .tp_basicsize = sizeof(PyVideo),
     .tp_itemsize = 0,
     .tp_dealloc = (destructor)PyVideo_dealloc,
-    .tp_flags = Py_TPFLAGS_DEFAULT,
+    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
     .tp_methods = Video_methods,
 };
 
 struct PyVideoLoader {
     PyObject_HEAD;
     videoloader::VideoLoader videoLoader;
+    OwnedPyRef videoType;
 };
 
 static PyObject *VideoLoader_AddVideoFile(PyVideoLoader *self, PyObject *args) {
@@ -145,7 +146,8 @@ static PyObject *VideoLoader_AddVideoFile(PyVideoLoader *self, PyObject *args) {
     try {
         auto video = self->videoLoader.addVideoFile(file_path_str);
 
-        OwnedPyRef pyVideo = _PyObject_New(&PyVideoType);
+        auto videoType = (PyTypeObject *)self->videoType.get();
+        OwnedPyRef pyVideo = videoType->tp_alloc(videoType, 0);
         if (pyVideo.get() == nullptr)
             return nullptr;
         new (&((PyVideo *)pyVideo.get())->video)
@@ -155,6 +157,38 @@ static PyObject *VideoLoader_AddVideoFile(PyVideoLoader *self, PyObject *args) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return nullptr;
     }
+}
+
+static PyObject *PyVideoLoader_new(PyTypeObject *type, PyObject *args,
+                                   PyObject *kwds) {
+    OwnedPyRef self = type->tp_alloc(type, 0);
+    if (!self) {
+        return nullptr;
+    }
+    auto &pyVideoLoader = *(PyVideoLoader *)self.get();
+    new (&pyVideoLoader.videoLoader) videoloader::VideoLoader();
+    new (&pyVideoLoader.videoType)
+        OwnedPyRef(BorrowedPyRef((PyObject *)&PyVideoType).own());
+    return self.transfer();
+}
+
+static void PyVideoLoader_dealloc(PyVideoLoader *v) {
+    v->videoType.~OwnedPyRef();
+    Py_TYPE(v)->tp_free((PyObject *)v);
+}
+
+static int PyVideoLoader_init(PyVideoLoader *self, PyObject *args,
+                              PyObject *kwds) {
+    static const char *kwlist[] = {"video_type", nullptr};
+    PyObject *_video_type = nullptr;
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|O", (char **)kwlist,
+                                     &_video_type)) {
+        return -1;
+    }
+    if (_video_type != nullptr) {
+        self->videoType = BorrowedPyRef(_video_type).own();
+    }
+    return 0;
 }
 
 static PyMethodDef VideoLoader_methods[] = {
@@ -168,9 +202,11 @@ static PyTypeObject PyVideoLoaderType = {
     .tp_name = "videoloader._ext._VideoLoader", // clang-format on
     .tp_basicsize = sizeof(PyVideoLoader),
     .tp_itemsize = 0,
+    .tp_dealloc = (destructor)PyVideoLoader_dealloc,
     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
     .tp_methods = VideoLoader_methods,
-    .tp_new = PyType_GenericNew,
+    .tp_init = (initproc)PyVideoLoader_init,
+    .tp_new = PyVideoLoader_new,
 };
 
 PyMODINIT_FUNC PyInit__ext(void) {

@@ -1,26 +1,28 @@
 import unittest
 
-from videoloader._ext import _VideoLoader, _Video
+from videoloader import Video, VideoLoader, _ext
 
 class TestVideoLoader(unittest.TestCase):
     def test_name(self):
-        self.assertEqual(str(_VideoLoader), "<class 'videoloader._ext._VideoLoader'>")
+        self.assertEqual(str(_ext._VideoLoader), "<class 'videoloader._ext._VideoLoader'>")
     def test_sub_typing(self):
-        class VideoLoader_Test(_VideoLoader):
+        class VideoLoader_Test(_ext._VideoLoader):
+            pass
+        class Video_Test(_ext._Video):
             pass
 
     def test_add_video_not_exists(self):
-        loader = _VideoLoader()
+        loader = VideoLoader()
         with self.assertRaisesRegex(RuntimeError, 'No such file or directory'):
             loader.add_video_file("Anything")
 
     def test_add_video(self):
-        loader = _VideoLoader()
+        loader = VideoLoader()
         video = loader.add_video_file('tests/test_video.mp4')
-        self.assertIsInstance(video, _Video)
+        self.assertIsInstance(video, Video)
 
 
 class TestVideo(unittest.TestCase):
     def test_not_newable(self):
         with self.assertRaises(TypeError):
-            _Video()
+            Video()

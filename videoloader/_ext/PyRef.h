@@ -4,34 +4,37 @@
 #include <Python.h>
 
 namespace huww {
-class OwnedPyRef;
-class BorrowedPyRef {
-  private:
-    PyObject *ptr;
 
-  public:
-    BorrowedPyRef(PyObject *ref) : ptr(ref) {}
-    BorrowedPyRef(const OwnedPyRef &ref);
+class PyRef {
+  protected:
+    PyObject *ptr;
+public:
+    PyRef(): ptr(nullptr) {}
+    PyRef(PyObject *ref): ptr(ref) {}
     PyObject *get() const { return this->ptr; }
+    explicit operator bool() const { return this->ptr != nullptr; }
+};
+
+class OwnedPyRef;
+class BorrowedPyRef: public PyRef {
+  public:
+    BorrowedPyRef(PyObject *ref) : PyRef(ref) {}
+    BorrowedPyRef(const OwnedPyRef &ref);
     OwnedPyRef own();
 };
 
-class OwnedPyRef {
-  private:
-    PyObject *ptr;
-
+class OwnedPyRef: public PyRef {
   public:
-    OwnedPyRef() : ptr(nullptr) {}
-    OwnedPyRef(PyObject *ref) : ptr(ref) {}
+    OwnedPyRef() {}
+    OwnedPyRef(PyObject *ref) : PyRef(ref) {}
     OwnedPyRef(BorrowedPyRef &ref);
 
-    OwnedPyRef &operator=(OwnedPyRef &&ref);
+    OwnedPyRef &operator=(OwnedPyRef &&ref) noexcept;
     OwnedPyRef(OwnedPyRef &&ref) noexcept;
     OwnedPyRef &operator=(const OwnedPyRef &ref);
     OwnedPyRef(const OwnedPyRef &ref);
 
     ~OwnedPyRef();
-    PyObject *get() const { return this->ptr; }
     BorrowedPyRef borrow() const { return BorrowedPyRef(*this); }
     PyObject *transfer();
 };
