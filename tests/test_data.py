@@ -13,8 +13,8 @@ class GetBatchDataTest(unittest.TestCase):
         video = loader.add_video_file('./tests/test_video.mp4')
 
         ffmpeg_proc = subprocess.run(
-            ['ffmpeg', '-i', 'tests/test_video.mp4', '-pix_fmt', 'rgb24', '-f', 'rawvideo', '-'],
-            capture_output=True, check=True
+            ['ffmpeg', '-loglevel', 'warning', '-i', 'tests/test_video.mp4', '-pix_fmt', 'rgb24', '-f', 'rawvideo', '-'],
+            stdout=subprocess.PIPE, check=True,
         )
         for num_frames_to_verify in [1,2,3,8,40]:
             with self.subTest(num_frames=num_frames_to_verify):
