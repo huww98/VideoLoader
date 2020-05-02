@@ -23,6 +23,9 @@ auto allocAVFilterGraph() {
 
 AVFilterGraph::AVFilterGraph(AVCodecContext &decodeContext, AVRational timeBase)
     : graph(allocAVFilterGraph()), filteredFrame(allocAVFrame()) {
+
+    graph->thread_type = 0;
+
     auto buffersrc = avfilter_get_by_name("buffer");
     auto buffersink = avfilter_get_by_name("buffersink");
 
