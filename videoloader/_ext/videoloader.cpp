@@ -225,15 +225,10 @@ VideoDLPack Video::getBatch(const std::vector<int> &frameIndices) {
 
     bool eof = false;
     while (!eof) {
-        while (!packetScheduler.finished()) {
+        if (!packetScheduler.finished()) {
             auto packet = packetScheduler.next();
-            int ret = avcodec_send_packet(decodeContext.get(), packet);
-            // std::cout << "Packet: " << packet->pts << " ret " << ret
-            //           << std::endl;
-            if (ret == AVERROR(EAGAIN)) {
-                break;
-            }
-            CHECK_AV(ret, "send packet to decoder failed");
+            CHECK_AV(avcodec_send_packet(decodeContext.get(), packet),
+                     "send packet to decoder failed");
             packetScheduler.consume();
         }
 
@@ -248,16 +243,8 @@ VideoDLPack Video::getBatch(const std::vector<int> &frameIndices) {
             }
             CHECK_AV(ret, "receive frame from decoder failed");
 
-            // TODO: consume frame
-            // std::cout << "Got frame:      " << frame->width << 'x' <<
-            // frame->height << " PTS: " << frame->pts << " flags: " <<
-            // frame->flags << std::endl;
             if (frame->pts == nextRequest->pts) {
                 auto filteredFrame = fg.processFrame(frame.get());
-                // std::cout << "Filtered frame: " << filteredFrame->width <<
-                // 'x' << filteredFrame->height << " PTS: " <<
-                // filteredFrame->pts << " flags: " << filteredFrame->flags <<
-                // std::endl;
                 pack.addFrame(filteredFrame, nextRequest->requestIndex);
                 av_frame_unref(filteredFrame);
                 nextRequest++;

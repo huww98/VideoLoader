@@ -9,8 +9,9 @@ using namespace huww;
 
 static auto dlTensorCapsuleName = "dltensor";
 
-static PyObject *DLTensor_to_numpy(PyObject *unused, PyObject *args) {
-    auto p = PyCapsule_GetPointer(args, dlTensorCapsuleName);
+static PyObject *DLTensor_to_numpy(PyObject *unused, PyObject *_arg) {
+    OwnedPyRef cap = BorrowedPyRef(_arg).own();
+    auto p = PyCapsule_GetPointer(cap.get(), dlTensorCapsuleName);
     if (p == nullptr) {
         PyErr_SetString(PyExc_ValueError, "No compatible DLTensor found.");
         return nullptr;
@@ -18,7 +19,8 @@ static PyObject *DLTensor_to_numpy(PyObject *unused, PyObject *args) {
     auto dlManager = static_cast<DLManagedTensor *>(p);
     auto &dl = dlManager->dl_tensor;
     OwnedPyRef array = PyArray_New(&PyArray_Type, dl.ndim, dl.shape, NPY_UINT8,
-                                   dl.strides, dl.data, 0, 0, args);
+                                   dl.strides, dl.data, 0, 0, nullptr);
+    PyArray_SetBaseObject((PyArrayObject *)array.get(), cap.transfer());
     return array.transfer();
 }
 
