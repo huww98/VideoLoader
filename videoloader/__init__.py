@@ -1,5 +1,6 @@
 from typing import Union, Iterable
 import os
+import contextlib
 
 from . import _ext
 
@@ -36,7 +37,41 @@ class Video(_ext._Video):
 
         Returns: numpy.ndarray or torch.Tensor. shape (frame, width, height, channel)
         '''
-        return self._data_convert(super().get_batch(frame_indices))
+        with self.keep_awake():
+            return self._data_convert(super().get_batch(frame_indices))
+
+    @contextlib.contextmanager
+    def keep_awake(self):
+        ''' Keep this video active to perform multiple read in a row
+
+        Example:
+
+        ```python
+        with video.keep_awake():
+            a = video.get_batch([1, 2])
+            b = video.get_batch([8, 9])
+        ```
+        '''
+        self._kept_awake += 1
+        try:
+            yield self
+        finally:
+            self._kept_awake -= 1
+            if self._kept_awake == 0:
+                self.sleep()
+
+    def sleep(self):
+        ''' Enter sleeping state.
+
+        Release buffer, close file descriptor, etc.
+        It will be woke up automatically when reading data.
+        '''
+        return super().sleep()
+
+    def is_sleeping(self) -> bool:
+        ''' Whether this video is in sleeping state
+        '''
+        return super().is_sleeping()
 
 
 class VideoLoader(_ext._VideoLoader):
@@ -66,4 +101,5 @@ class VideoLoader(_ext._VideoLoader):
         '''
         video = super().add_video_file(url)
         video._data_convert = self._data_convert
+        video._kept_awake = 0
         return video

@@ -40,3 +40,24 @@ class TestGetBatchPytorch(unittest.TestCase):
         batch = self.video.get_batch([0, 1])
         self.assertTrue(torch.is_tensor(batch))
         self.assertEqual(batch.size(), (2, 456, 256, 3))
+
+
+class TestSleepState(unittest.TestCase):
+    def setUp(self):
+        self.loader = VideoLoader()
+
+    def test_created_awake(self):
+        video = self.loader.add_video_file('./tests/test_video.mp4')
+        self.assertFalse(video.is_sleeping())
+
+    def test_sleeping_after_read(self):
+        video = self.loader.add_video_file('./tests/test_video.mp4')
+        video.get_batch([0, 1])
+        self.assertTrue(video.is_sleeping())
+
+    def test_keep_awake(self):
+        video = self.loader.add_video_file('./tests/test_video.mp4')
+        with video.keep_awake():
+            video.get_batch([0, 1])
+            self.assertFalse(video.is_sleeping())
+        self.assertTrue(video.is_sleeping())
