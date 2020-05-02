@@ -181,11 +181,16 @@ static int PyVideoLoader_init(PyVideoLoader *self, PyObject *args,
                               PyObject *kwds) {
     static const char *kwlist[] = {"video_type", nullptr};
     PyObject *_video_type = nullptr;
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|O", (char **)kwlist,
-                                     &_video_type)) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|O!", (char **)kwlist,
+                                     &PyType_Type, &_video_type)) {
         return -1;
     }
     if (_video_type != nullptr) {
+        if (!PyType_IsSubtype((PyTypeObject *)_video_type, &PyVideoType)) {
+            PyErr_SetString(PyExc_TypeError,
+                            "Expecting a sub-type of videoloader._ext._Video");
+            return -1;
+        }
         self->videoType = BorrowedPyRef(_video_type).own();
     }
     return 0;

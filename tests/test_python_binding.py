@@ -21,6 +21,11 @@ class TestVideoLoader(unittest.TestCase):
         video = loader.add_video_file('tests/test_video.mp4')
         self.assertIsInstance(video, Video)
 
+    def test_video_type_check(self):
+        with self.assertRaises(TypeError):
+            _ext._VideoLoader('abc')
+        with self.assertRaises(TypeError):
+            _ext._VideoLoader(str)
 
 class TestVideo(unittest.TestCase):
     def test_not_newable(self):
