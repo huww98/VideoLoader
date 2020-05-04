@@ -36,6 +36,8 @@ class Video {
     void weakUp();
     bool isSleeping();
 
+    size_t numFrames() noexcept { return packetIndex.size(); }
+
     VideoDLPack getBatch(const std::vector<int> &frameIndices);
 };
 

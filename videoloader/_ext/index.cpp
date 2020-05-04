@@ -67,6 +67,10 @@ static PyObject *PyVideo_isSleeping(PyVideo *self, PyObject *args) {
     }
 }
 
+static PyObject *PyVideo_numFrames(PyVideo *self, PyObject *args) {
+    return PyLong_FromSize_t(self->video.numFrames());
+}
+
 static PyObject *PyVideo_getBatch(PyVideo *self, PyObject *args) {
     OwnedPyRef iterator = PyObject_GetIter(args);
     if (iterator.get() == nullptr) {
@@ -109,6 +113,8 @@ static PyMethodDef Video_methods[] = {
     {"sleep", (PyCFunction)PyVideo_sleep, METH_NOARGS, nullptr},
     {"is_sleeping", (PyCFunction)PyVideo_isSleeping, METH_NOARGS, nullptr},
     {"get_batch", (PyCFunction)PyVideo_getBatch, METH_O, nullptr},
+    {"num_frames", (PyCFunction)PyVideo_numFrames, METH_NOARGS, nullptr},
+    {"__len__", (PyCFunction)PyVideo_numFrames, METH_NOARGS, nullptr},
     {nullptr},
 };
 

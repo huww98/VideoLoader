@@ -19,6 +19,10 @@ class TestGetBatchBasic(unittest.TestCase):
         self.assertRegex(repr(self.batch),
                          '<capsule object "dltensor" at 0x[0-9a-f]+>')
 
+    def test_len(self):
+        self.assertEqual(self.video.num_frames(), 300)
+        self.assertEqual(len(self.video), 300)
+
 
 class TestGetBatch(unittest.TestCase):
     def setUp(self):
