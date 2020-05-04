@@ -2,12 +2,30 @@
 #include <Python.h>
 #include <numpy/arrayobject.h>
 
+#include <unordered_map>
+#include <typeinfo>
+#include <typeindex>
+
 #include "PyRef.h"
 #include "videoloader.h"
 
 using namespace huww;
 
 static auto dlTensorCapsuleName = "dltensor";
+static std::unordered_map<std::type_index, PyObject *> exceptionMap {
+    {std::type_index(typeid(std::runtime_error)), PyExc_RuntimeError},
+    {std::type_index(typeid(std::out_of_range)), PyExc_IndexError},
+};
+
+static void handleException(std::exception& e) {
+    PyObject *pyException;
+    try{
+        pyException = exceptionMap.at(std::type_index(typeid(e)));
+    } catch (std::out_of_range&) {
+        pyException = PyExc_RuntimeError;
+    }
+    PyErr_SetString(pyException, e.what());
+}
 
 static PyObject *DLTensor_to_numpy(PyObject *unused, PyObject *_arg) {
     OwnedPyRef cap = BorrowedPyRef(_arg).own();
@@ -104,7 +122,7 @@ static PyObject *PyVideo_getBatch(PyVideo *self, PyObject *args) {
                 dlTensor->deleter(dlTensor);
             });
     } catch (std::exception &e) {
-        PyErr_SetString(PyExc_RuntimeError, e.what());
+        handleException(e);
         return nullptr;
     }
 }

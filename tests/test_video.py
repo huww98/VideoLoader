@@ -23,6 +23,10 @@ class TestGetBatchBasic(unittest.TestCase):
         self.assertEqual(self.video.num_frames(), 300)
         self.assertEqual(len(self.video), 300)
 
+    def test_out_of_range(self):
+        with self.assertRaises(IndexError):
+            self.video.get_batch([9999])
+
 
 class TestGetBatch(unittest.TestCase):
     def setUp(self):
