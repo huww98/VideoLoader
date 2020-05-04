@@ -31,6 +31,8 @@ else()
     add_compile_options("$<$<CONFIG:DEBUG>:-fomit-frame-pointer;-fsanitize=address>")
     add_link_options("$<$<CONFIG:DEBUG>:-fomit-frame-pointer;-fsanitize=address>")
 endif()
+add_compile_options("$<$<NOT:$<CONFIG:Debug>>:-flto>")
+add_link_options("$<$<NOT:$<CONFIG:Debug>>:-flto>")
 
 find_package(AvCodec REQUIRED)
 find_package(AvFormat REQUIRED)
