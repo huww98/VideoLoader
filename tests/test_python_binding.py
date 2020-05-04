@@ -11,11 +11,6 @@ class TestVideoLoader(unittest.TestCase):
         class Video_Test(_ext._Video):
             pass
 
-    def test_add_video_not_exists(self):
-        loader = VideoLoader()
-        with self.assertRaisesRegex(RuntimeError, 'No such file or directory'):
-            loader.add_video_file("Anything")
-
     def test_add_video(self):
         loader = VideoLoader()
         video = loader.add_video_file('tests/test_video.mp4')

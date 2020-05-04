@@ -2,9 +2,9 @@
 #include <Python.h>
 #include <numpy/arrayobject.h>
 
-#include <unordered_map>
-#include <typeinfo>
 #include <typeindex>
+#include <typeinfo>
+#include <unordered_map>
 
 #include "PyRef.h"
 #include "videoloader.h"
@@ -12,17 +12,51 @@
 using namespace huww;
 
 static auto dlTensorCapsuleName = "dltensor";
-static std::unordered_map<std::type_index, PyObject *> exceptionMap {
-    {std::type_index(typeid(std::runtime_error)), PyExc_RuntimeError},
-    {std::type_index(typeid(std::out_of_range)), PyExc_IndexError},
+
+static std::unordered_map<error_t, PyObject *> osExceptionMap{
+    {ENOENT, PyExc_FileNotFoundError},
+    {EISDIR, PyExc_IsADirectoryError},
 };
 
-static void handleException(std::exception& e) {
-    PyObject *pyException;
-    try{
-        pyException = exceptionMap.at(std::type_index(typeid(e)));
-    } catch (std::out_of_range&) {
-        pyException = PyExc_RuntimeError;
+static std::unordered_map<std::type_index, PyObject *> exceptionMap{
+    {std::type_index(typeid(std::runtime_error)), PyExc_RuntimeError},
+    {std::type_index(typeid(std::out_of_range)), PyExc_IndexError},
+    {std::type_index(typeid(std::system_error)), PyExc_OSError},
+};
+
+static error_t getErrorCode(std::exception &e) {
+    if (auto systemError = dynamic_cast<std::system_error *>(&e)) {
+        auto &code = systemError->code();
+        if (code.category() == std::system_category()) {
+            return code.value();
+        } else {
+            return 0;
+        }
+    }
+    if (auto avError = dynamic_cast<videoloader::AvError *>(&e)) {
+        return AVUNERROR(avError->code());
+    }
+    return 0;
+}
+
+static void handleException(std::exception &e) {
+    PyObject *pyException = nullptr;
+
+    auto code = getErrorCode(e);
+    if (code > 0) {
+        try {
+            pyException = osExceptionMap.at(code);
+        } catch (std::out_of_range &) {
+            /* Ignore */
+        }
+    }
+
+    if (pyException == nullptr) {
+        try {
+            pyException = exceptionMap.at(std::type_index(typeid(e)));
+        } catch (std::out_of_range &) {
+            pyException = PyExc_RuntimeError;
+        }
     }
     PyErr_SetString(pyException, e.what());
 }
@@ -44,7 +78,7 @@ static PyObject *DLTensor_to_numpy(PyObject *unused, PyObject *_arg) {
 
 static PyMethodDef videoLoaderMethods[] = {
     {"dltensor_to_numpy", DLTensor_to_numpy, METH_O, nullptr},
-    {NULL, NULL, 0, NULL},
+    {nullptr},
 };
 
 static struct PyModuleDef videoLoaderModule = {
@@ -178,7 +212,7 @@ static PyObject *VideoLoader_AddVideoFile(PyVideoLoader *self, PyObject *args) {
             videoloader::Video(std::move(video));
         return pyVideo.transfer();
     } catch (std::exception &e) {
-        PyErr_SetString(PyExc_RuntimeError, e.what());
+        handleException(e);
         return nullptr;
     }
 }

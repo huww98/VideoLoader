@@ -14,8 +14,12 @@ namespace huww {
 namespace videoloader {
 
 class AvError : public std::runtime_error {
+  private:
+    int _code;
+
   public:
     AvError(int errorCode, std::string message);
+    int code() const noexcept { return this->_code; }
 };
 
 inline int check_av(int retCode) { return retCode; }
