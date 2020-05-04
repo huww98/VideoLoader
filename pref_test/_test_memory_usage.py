@@ -4,7 +4,7 @@ import psutil
 
 from videoloader import VideoLoader
 
-BASE = Path('/mnt/d/Downloads/answering_questions')
+BASE = Path('/tmp/answering_questions')
 
 def main():
     this_process = psutil.Process()
@@ -24,7 +24,7 @@ def main():
         v.sleep()
         videos.append(v)
         new_rss = this_process.memory_info().rss
-        print(f'{i:3d} RSS: {new_rss} ({new_rss - rss:+08d})')
+        print(f'{i:3d} RSS: {new_rss} ({new_rss - rss:=+8d})')
         rss = new_rss
 
     print(f'Average: {(rss - init_rss) / len(files) / 1024:.2f} KB/file' )
