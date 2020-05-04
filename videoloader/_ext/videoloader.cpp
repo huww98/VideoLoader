@@ -245,9 +245,13 @@ VideoDLPack Video::getBatch(const std::vector<int> &frameIndices) {
 
             if (frame->pts == nextRequest->pts) {
                 auto filteredFrame = fg.processFrame(frame.get());
-                pack.addFrame(filteredFrame, nextRequest->requestIndex);
+                do {
+                    pack.copyFromFrame(filteredFrame,
+                                       nextRequest->requestIndex);
+                    nextRequest++;
+                } while (nextRequest != request.cend() &&
+                         filteredFrame->pts == nextRequest->pts);
                 av_frame_unref(filteredFrame);
-                nextRequest++;
                 if (nextRequest == request.cend()) {
                     eof = true;
                     break;

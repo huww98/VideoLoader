@@ -21,7 +21,7 @@ class VideoDLPack {
 
   public:
     VideoDLPack(int numFrames);
-    void addFrame(AVFrame *frame, int index);
+    void copyFromFrame(AVFrame *frame, int index);
 
     DLManagedTensor *release() noexcept { return dlTensor.release(); }
 };

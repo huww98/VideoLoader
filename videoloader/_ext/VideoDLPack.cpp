@@ -8,7 +8,7 @@ namespace videoloader {
 VideoDLPack::VideoDLPack(int numFrames)
     : numFrames(numFrames), dlTensor(nullptr, [](auto t) { t->deleter(t); }) {}
 
-void VideoDLPack::addFrame(AVFrame *frame, int index) {
+void VideoDLPack::copyFromFrame(AVFrame *frame, int index) {
     assert(index < numFrames);
     assert(frame->format == AVPixelFormat::AV_PIX_FMT_RGB24);
     auto linesize = frame->linesize[0];

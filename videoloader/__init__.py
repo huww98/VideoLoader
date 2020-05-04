@@ -33,7 +33,7 @@ class Video(_ext._Video):
         Pixel format is RGB24
 
         * frame_indices (Iterable[int]): Arbitrary number of frame indices.
-            Can repeat, out of order.
+            Can be repeated, out of order, sparse.
 
         Returns: numpy.ndarray or torch.Tensor. shape (frame, width, height, channel)
         '''
