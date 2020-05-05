@@ -29,6 +29,8 @@ class Video {
     /** Sorted by pts */
     std::vector<PacketIndexEntry> packetIndex;
 
+    AVStream &currentStream() noexcept;
+
   public:
     Video(std::string url);
 
@@ -37,6 +39,7 @@ class Video {
     bool isSleeping();
 
     size_t numFrames() noexcept { return packetIndex.size(); }
+    AVRational averageFrameRate() noexcept;
 
     VideoDLPack getBatch(const std::vector<int> &frameIndices);
 };

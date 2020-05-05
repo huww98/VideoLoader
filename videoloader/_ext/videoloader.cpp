@@ -210,14 +210,13 @@ VideoDLPack Video::getBatch(const std::vector<int> &frameIndices) {
 
     auto decodeContext = new_AVCodecContext(decoder);
 
-    CHECK_AV(avcodec_parameters_to_context(
-                 decodeContext.get(), fmt_ctx->streams[streamIndex]->codecpar),
+    CHECK_AV(avcodec_parameters_to_context(decodeContext.get(),
+                                           currentStream().codecpar),
              "failed to set codec parameters");
     CHECK_AV(avcodec_open2(decodeContext.get(), decoder, nullptr),
              "open decoder failed");
 
-    AVFilterGraph fg(*decodeContext.get(),
-                     fmt_ctx->streams[streamIndex]->time_base);
+    AVFilterGraph fg(*decodeContext.get(), currentStream().time_base);
     VideoDLPack pack(request.size());
     auto nextRequest = request.cbegin();
 
@@ -268,6 +267,14 @@ void Video::sleep() { this->format.sleep(); }
 void Video::weakUp() { this->format.weakUp(); }
 
 bool Video::isSleeping() { return this->format.isSleeping(); }
+
+AVStream &Video::currentStream() noexcept {
+    return *this->format.formatContext()->streams[this->streamIndex];
+}
+
+AVRational Video::averageFrameRate() noexcept {
+    return this->currentStream().avg_frame_rate;
+}
 
 } // namespace videoloader
 } // namespace huww

@@ -1,4 +1,5 @@
 import unittest
+import fractions
 
 import torch
 import torch.utils.dlpack
@@ -26,6 +27,11 @@ class TestGetBatchBasic(unittest.TestCase):
     def test_out_of_range(self):
         with self.assertRaises(IndexError):
             self.video.get_batch([9999])
+
+    def test_fps(self):
+        fps = self.video.average_frame_rate()
+        self.assertIsInstance(fps, fractions.Fraction)
+        self.assertEqual(fps, fractions.Fraction(30000, 1001))
 
 
 class TestGetBatch(unittest.TestCase):

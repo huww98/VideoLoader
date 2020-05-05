@@ -123,6 +123,27 @@ static PyObject *PyVideo_numFrames(PyVideo *self, PyObject *args) {
     return PyLong_FromSize_t(self->video.numFrames());
 }
 
+static PyObject *PyVideo_averageFrameRate(PyVideo *self, PyObject *args) {
+    auto frameRate = self->video.averageFrameRate();
+    OwnedPyRef fractionsModule = PyImport_ImportModule("fractions");
+    if (!fractionsModule) {
+        return nullptr;
+    }
+    OwnedPyRef FractionClass =
+        PyObject_GetAttrString(fractionsModule.get(), "Fraction");
+    if (!FractionClass) {
+        return nullptr;
+    }
+    OwnedPyRef pyFrameRateArgs =
+        Py_BuildValue("ii", frameRate.num, frameRate.den);
+    if (!pyFrameRateArgs) {
+        return nullptr;
+    }
+    OwnedPyRef pyFrameRate =
+        PyObject_Call(FractionClass.get(), pyFrameRateArgs.get(), nullptr);
+    return pyFrameRate.transfer();
+}
+
 static PyObject *PyVideo_getBatch(PyVideo *self, PyObject *args) {
     OwnedPyRef iterator = PyObject_GetIter(args);
     if (iterator.get() == nullptr) {
@@ -167,6 +188,7 @@ static PyMethodDef Video_methods[] = {
     {"get_batch", (PyCFunction)PyVideo_getBatch, METH_O, nullptr},
     {"num_frames", (PyCFunction)PyVideo_numFrames, METH_NOARGS, nullptr},
     {"__len__", (PyCFunction)PyVideo_numFrames, METH_NOARGS, nullptr},
+    {"average_frame_rate", (PyCFunction)PyVideo_averageFrameRate, METH_NOARGS, nullptr},
     {nullptr},
 };
 
