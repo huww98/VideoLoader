@@ -33,6 +33,8 @@ AVFilterGraph::AVFilterGraph(AVCodecContext &decodeContext, AVRational timeBase)
     args << "video_size=" << decodeContext.width << "x" << decodeContext.height;
     args << ":pix_fmt=" << decodeContext.pix_fmt;
     args << ":time_base=" << timeBase.num << "/" << timeBase.den;
+    args << ":pixel_aspect=" << decodeContext.sample_aspect_ratio.num << "/"
+         << decodeContext.sample_aspect_ratio.den;
 
     CHECK_AV(avfilter_graph_create_filter(&buffersrc_ctx, buffersrc, "in",
                                           args.str().c_str(), nullptr,

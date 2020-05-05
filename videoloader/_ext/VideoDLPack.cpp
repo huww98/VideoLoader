@@ -18,7 +18,7 @@ void VideoDLPack::copyFromFrame(AVFrame *frame, int index) {
         dlTensor.reset(new DLManagedTensor{
             .dl_tensor =
                 {
-                    .data = new uint8_t[frameSize * numFrames],
+                    .data = aligned_alloc(64, frameSize * numFrames),
                     .ctx = {.device_type = kDLCPU},
                     .ndim = 4, // frame, width, height, channel
                     .dtype =
@@ -49,7 +49,7 @@ void VideoDLPack::free(DLManagedTensor *dlTensor) {
     auto &dl = dlTensor->dl_tensor;
     delete[] dl.shape;
     delete[] dl.strides;
-    delete[] static_cast<uint8_t *>(dl.data);
+    ::free(dl.data);
     delete dlTensor;
 }
 
