@@ -2,35 +2,57 @@ name: Test
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
+    paths-ignore:
+      - README.md
   pull_request:
-    branches: [ master ]
+    branches: [master]
+  release:
+    types: [created]
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: [3.6, 3.7, 3.8]
 
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v1
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install FFmpeg
-      run: |
-        sudo add-apt-repository ppa:jonathonf/ffmpeg-4
-        sudo apt-get update
-        sudo apt-get install -y ffmpeg libavcodec-dev libavformat-dev libavfilter-dev libavdevice-dev
-    - name: Install PyTorch
-      run: |
-        pip install torch==1.5.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
-    - name: Install
-      run: |
-        CXX=clang++-9 MAKEFLAGS="-j$(nproc)" python -m pip install --verbose --editable .
-    - name: Test
-      run: |
-        python -m unittest
+      - uses: actions/checkout@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install FFmpeg
+        run: |
+          sudo add-apt-repository ppa:jonathonf/ffmpeg-4
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libavcodec-dev libavformat-dev libavfilter-dev libavdevice-dev
+      - name: Install PyTorch
+        run: |
+          pip install torch==1.5.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
+      - name: Install
+        run: |
+          CXX=clang++-9 MAKEFLAGS="-j$(nproc)" python -m pip install --verbose --editable .
+      - name: Test
+        run: |
+          python -m unittest
+
+  publish_sdist:
+    needs: [build]
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'release' && github.event.action == 'created' }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python 3
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.x
+      - name: Set up Enviroment
+        run: pip install -U pip twine
+      - name: Build sdist
+        run: python setup.py sdist
+      - name: publish
+        uses: pypa/gh-action-pypi-publish@master
+        with:
+          password: ${{ secrets.pypi_password }}
