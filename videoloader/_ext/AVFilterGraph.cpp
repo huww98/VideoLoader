@@ -25,21 +25,26 @@ AVFilterGraph::AVFilterGraph(AVCodecContext &decodeContext, AVRational timeBase)
     : graph(allocAVFilterGraph()), filteredFrame(allocAVFrame()) {
 
     graph->thread_type = 0;
+    avfilter_graph_set_auto_convert(graph.get(), AVFILTER_AUTO_CONVERT_NONE);
 
     auto buffersrc = avfilter_get_by_name("buffer");
     auto buffersink = avfilter_get_by_name("buffersink");
 
-    std::ostringstream args;
-    args << "video_size=" << decodeContext.width << "x" << decodeContext.height;
-    args << ":pix_fmt=" << decodeContext.pix_fmt;
-    args << ":time_base=" << timeBase.num << "/" << timeBase.den;
-    args << ":pixel_aspect=" << decodeContext.sample_aspect_ratio.num << "/"
-         << decodeContext.sample_aspect_ratio.den;
+    buffersrc_ctx =
+        CHECK_AV(avfilter_graph_alloc_filter(graph.get(), buffersrc, "in"),
+                 "failed to alloc buffer source");
+    AVBufferSrcParameters srcParams{
+        .format = decodeContext.pix_fmt,
+        .time_base = timeBase,
+        .width = decodeContext.width,
+        .height = decodeContext.height,
+        .sample_aspect_ratio = decodeContext.sample_aspect_ratio,
+    };
+    CHECK_AV(av_buffersrc_parameters_set(buffersrc_ctx, &srcParams),
+             "failed to set buffer source parameters");
+    CHECK_AV(avfilter_init_str(buffersrc_ctx, nullptr),
+             "failed to initialize buffer source");
 
-    CHECK_AV(avfilter_graph_create_filter(&buffersrc_ctx, buffersrc, "in",
-                                          args.str().c_str(), nullptr,
-                                          graph.get()),
-             "failed to create buffer source");
     CHECK_AV(avfilter_graph_create_filter(&buffersink_ctx, buffersink, "out",
                                           nullptr, nullptr, graph.get()),
              "failed to create buffer sink");
@@ -49,27 +54,19 @@ AVFilterGraph::AVFilterGraph(AVCodecContext &decodeContext, AVRational timeBase)
                                  AV_PIX_FMT_NONE, AV_OPT_SEARCH_CHILDREN),
              "failed to set output pixel format");
 
-    auto inputs = avfilter_inout_alloc();
-    auto outputs = avfilter_inout_alloc();
+    auto scale = avfilter_get_by_name("scale");
+    AVFilterContext *scale_ctx;
+    CHECK_AV(avfilter_graph_create_filter(&scale_ctx, scale, "scale", nullptr,
+                                          nullptr, graph.get()),
+             "create scale filter failed");
 
-    outputs->name = av_strdup("in");
-    outputs->filter_ctx = buffersrc_ctx;
-    outputs->pad_idx = 0;
-    outputs->next = nullptr;
-
-    inputs->name = av_strdup("out");
-    inputs->filter_ctx = buffersink_ctx;
-    inputs->pad_idx = 0;
-    inputs->next = nullptr;
-
-    CHECK_AV(avfilter_graph_parse_ptr(graph.get(), "null", &inputs, &outputs,
-                                      nullptr),
-             "avfilter_graph_parse_ptr failed");
+    CHECK_AV(avfilter_link(buffersrc_ctx, 0, scale_ctx, 0),
+             "link buffersrc failed");
+    CHECK_AV(avfilter_link(scale_ctx, 0, buffersink_ctx, 0),
+             "link buffersink failed");
 
     CHECK_AV(avfilter_graph_config(graph.get(), nullptr),
              "avfilter_graph_config failed");
-
-    assert(inputs == nullptr && outputs == nullptr);
 }
 
 AVFrame *AVFilterGraph::processFrame(AVFrame *src) {
