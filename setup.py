@@ -55,13 +55,48 @@ ext_module = CMakeExtension(
     cmake_root='videoloader/_ext',
     target='videoloader')
 
+this_directory = Path(__file__).parent
+with (this_directory / 'README.md').open(encoding='utf-8') as f:
+    long_description = f.read()
+
 setup(
     name='VideoLoader',
-    version='0.0.1',
+    version='0.1.0',
     description='Enable high performance video data loading for machine learning.',
+    long_description=long_description,
+    long_description_content_type='text/markdown',
+    url='https://github.com/huww98/VideoLoader',
+    author='Weiwen Hu',
+    author_email='huww98@outlook.com',
+    license='MIT',
     packages=find_packages(exclude=['tests']),
     ext_modules=[ext_module],
     cmdclass={
         'build_ext': build_ext,
     },
+    classifiers=[
+        'Development Status :: 4 - Beta',
+        'Intended Audience :: Developers',
+        'Intended Audience :: Science/Research',
+        'License :: OSI Approved :: MIT License',
+        'Operating System :: POSIX',
+        'Operating System :: POSIX :: Linux',
+        'Topic :: Multimedia :: Video',
+        'Topic :: Scientific/Engineering :: Artificial Intelligence',
+        'Programming Language :: C++',
+        'Programming Language :: Python',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3 :: Only',
+        'Programming Language :: Python :: Implementation :: CPython',
+    ],
+    platforms=['Linux'],
+    python_requires='>=3.6',
+    install_requires=['numpy'],
+    extras_require={
+        'pytorch': ['torch>=0.3.0']
+    },
+    keywords='pytorch dataloader video',
 )
