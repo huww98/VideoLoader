@@ -276,5 +276,14 @@ AVRational Video::averageFrameRate() noexcept {
     return this->currentStream().avg_frame_rate;
 }
 
+void init() {
+#if (LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(58, 9, 100))
+    av_register_all();
+#endif
+#if LIBAVFILTER_VERSION_INT < AV_VERSION_INT(7, 14, 100)
+    avfilter_register_all();
+#endif
+}
+
 } // namespace videoloader
 } // namespace huww

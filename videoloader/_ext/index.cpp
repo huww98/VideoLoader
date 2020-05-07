@@ -302,6 +302,7 @@ PyMODINIT_FUNC PyInit__ext(void) {
         return nullptr;
 
     import_array(); // import numpy
+    videoloader::init();
 
     if (PyModule_AddObject(m.get(), "_VideoLoader", loaderType.get()) < 0) {
         return nullptr;

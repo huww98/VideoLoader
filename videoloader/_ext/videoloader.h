@@ -15,6 +15,8 @@ extern "C" {
 namespace huww {
 namespace videoloader {
 
+void init();
+
 struct PacketIndexEntry {
     int64_t pts;
     int keyFrameIndex;
