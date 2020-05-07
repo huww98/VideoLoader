@@ -1,1 +1,4 @@
-recursive-include videoloader/_ext *.cpp *.h *.cmake CMakeLists.txt
+recursive-exclude *tests *
+recursive-exclude .vscode *
+recursive-exclude .github *
+exclude .editorconfig .clang-format .gitignore

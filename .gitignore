@@ -5,3 +5,5 @@ __pycache__
 
 *.so
 *.egg-info
+
+videoloader/version.py

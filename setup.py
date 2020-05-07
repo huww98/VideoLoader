@@ -61,7 +61,9 @@ with (this_directory / 'README.md').open(encoding='utf-8') as f:
 
 setup(
     name='VideoLoader',
-    version='0.1.1',
+    use_scm_version={
+        'write_to': 'videoloader/version.py',
+    },
     description='Enable high performance video data loading for machine learning.',
     long_description=long_description,
     long_description_content_type='text/markdown',
@@ -69,7 +71,7 @@ setup(
     author='Weiwen Hu',
     author_email='huww98@outlook.com',
     license='MIT',
-    packages=find_packages(exclude=['tests']),
+    packages=find_packages(exclude=['*tests']),
     ext_modules=[ext_module],
     cmdclass={
         'build_ext': build_ext,
@@ -98,5 +100,6 @@ setup(
     extras_require={
         'pytorch': ['torch>=0.3.0']
     },
+    setup_requires=['setuptools_scm', 'numpy'],
     keywords='pytorch dataloader video',
 )
