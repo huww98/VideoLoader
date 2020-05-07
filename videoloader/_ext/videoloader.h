@@ -5,11 +5,11 @@
 #include <vector>
 
 extern "C" {
-    #include <libavcodec/avcodec.h>
+#include <libavcodec/avcodec.h>
 }
 
-#include "AVFormat.h"
 #include "AVFilterGraph.h"
+#include "AVFormat.h"
 #include "VideoDLPack.h"
 
 namespace huww {
@@ -34,7 +34,7 @@ class Video {
     AVStream &currentStream() noexcept;
 
   public:
-    Video(std::string url);
+    explicit Video(std::string url);
 
     void sleep();
     void weakUp();

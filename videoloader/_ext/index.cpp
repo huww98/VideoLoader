@@ -2,6 +2,7 @@
 #include <Python.h>
 #include <numpy/arrayobject.h>
 
+#include <optional>
 #include <typeindex>
 #include <typeinfo>
 #include <unordered_map>
@@ -60,6 +61,15 @@ static void handleException(std::exception &e) {
     }
     PyErr_SetString(pyException, e.what());
 }
+
+class ReleaseGILGuard {
+  private:
+    PyThreadState *_save;
+
+  public:
+    ReleaseGILGuard() noexcept : _save(PyEval_SaveThread()) {}
+    ~ReleaseGILGuard() noexcept { PyEval_RestoreThread(_save); }
+};
 
 static PyObject *DLTensor_to_numpy(PyObject *unused, PyObject *_arg) {
     OwnedPyRef cap = BorrowedPyRef(_arg).own();
@@ -159,9 +169,13 @@ static PyObject *PyVideo_getBatch(PyVideo *self, PyObject *args) {
     }
 
     try {
-        auto dlPack = self->video.getBatch(indices);
+        std::optional<videoloader::VideoDLPack> dlPack;
+        {
+            ReleaseGILGuard no_GIL;
+            dlPack = self->video.getBatch(indices);
+        }
         return PyCapsule_New(
-            dlPack.release(), dlTensorCapsuleName, [](PyObject *cap) {
+            dlPack->release(), dlTensorCapsuleName, [](PyObject *cap) {
                 if (strcmp(PyCapsule_GetName(cap), dlTensorCapsuleName) != 0) {
                     return; // used.
                 }
@@ -218,14 +232,18 @@ static PyObject *VideoLoader_AddVideoFile(PyVideoLoader *self, PyObject *args) {
     }
 
     try {
-        auto video = self->videoLoader.addVideoFile(file_path_str);
+        std::optional<videoloader::Video> video;
+        {
+            ReleaseGILGuard no_GIL;
+            video = self->videoLoader.addVideoFile(file_path_str);
+        }
 
         auto videoType = (PyTypeObject *)self->videoType.get();
         OwnedPyRef pyVideo = videoType->tp_alloc(videoType, 0);
         if (pyVideo.get() == nullptr)
             return nullptr;
         new (&((PyVideo *)pyVideo.get())->video)
-            videoloader::Video(std::move(video));
+            videoloader::Video(std::move(*video));
         return pyVideo.transfer();
     } catch (std::exception &e) {
         handleException(e);

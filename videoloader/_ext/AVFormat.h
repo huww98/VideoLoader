@@ -15,7 +15,7 @@ class AVFormat {
     void dispose();
 
   public:
-    AVFormat(std::string url);
+    explicit AVFormat(std::string url);
     AVFormat(AVFormat &&other) noexcept : ioContext(nullptr, nullptr) {
         *this = std::move(other);
     }

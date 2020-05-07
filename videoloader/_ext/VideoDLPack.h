@@ -20,7 +20,7 @@ class VideoDLPack {
     std::unique_ptr<DLManagedTensor, decltype(&VideoDLPack::free)> dlTensor;
 
   public:
-    VideoDLPack(int numFrames);
+    explicit VideoDLPack(int numFrames);
     void copyFromFrame(AVFrame *frame, int index);
 
     DLManagedTensor *release() noexcept { return dlTensor.release(); }
