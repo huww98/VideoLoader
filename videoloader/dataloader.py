@@ -138,16 +138,16 @@ class _ThreadingVideoLoaderIterator:
                     # This video has not been opened
                     self.dataset_loader.videos[v_index] = video_opened = threading.Event()
                     open_video = True
-
-            if open_video:
-                video = self.dataset_loader.videos[v_index] = \
-                    self.dataset_loader.loader.add_video_file(video)
-                video_opened.set()
-            container.data = video.get_batch(frame_indices)
-
-            with self._new_data:
-                container.loaded.set()
-                self._new_data.notify_all()
+            try:
+                if open_video:
+                    video = self.dataset_loader.videos[v_index] = \
+                        self.dataset_loader.loader.add_video_file(video)
+                    video_opened.set()
+                container.data = video.get_batch(frame_indices)
+            finally:
+                with self._new_data:
+                    container.loaded.set()
+                    self._new_data.notify_all()
 
             with self._start_prefetch:
                 t1 = time.perf_counter()
@@ -160,10 +160,6 @@ class _ThreadingVideoLoaderIterator:
             t.join()
 
     def __next__(self):
-        if self.load_execption is not None:
-            self._join_prefetch_threads()
-            raise self.load_execption
-
         if self._finished and not self._prefetch:
             self._join_prefetch_threads()
             raise StopIteration()
@@ -176,6 +172,10 @@ class _ThreadingVideoLoaderIterator:
             container = self._prefetch.pop()
 
         container.loaded.wait()
+        if self.load_execption is not None:
+            self._join_prefetch_threads()
+            raise self.load_execption
+
         assert container.data is not None
 
         self.i += 1
