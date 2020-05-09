@@ -117,7 +117,7 @@ static PyObject *PyVideo_sleep(PyVideo *self, PyObject *args) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return nullptr;
     }
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 static PyObject *PyVideo_isSleeping(PyVideo *self, PyObject *args) {
