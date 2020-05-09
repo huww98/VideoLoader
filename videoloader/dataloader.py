@@ -57,7 +57,8 @@ class _ThreadingVideoLoaderIterator:
                                        for i in range(dataset_loader.max_prefetch + 1)]
         self._recent_read_timepoint.reverse()
 
-        self._threads = [threading.Thread(target=self._load_thread, name=f'Data prefetch {i}')
+        self.load_execption = None
+        self._threads = [threading.Thread(target=self._load_thread_warpper, name=f'Data prefetch {i}')
                          for i in range(dataset_loader.max_thread)]
         self.i = 0
         self.stat_thread = []
@@ -96,11 +97,21 @@ class _ThreadingVideoLoaderIterator:
         if add_threads > 0:
             self._start_prefetch.notify(add_threads)
 
+    def _load_thread_warpper(self):
+        try:
+            self._load_thread()
+        except Exception as e:
+            with self._start_prefetch:
+                self.load_execption = e
+                self._start_prefetch.notify_all()
+
     def _load_thread(self):
         thread = threading.current_thread()
         while not self._finished:
             with self._start_prefetch:
                 while not self._thread_should_run():
+                    if self.load_execption is not None:
+                        return
                     self._start_prefetch.wait()
                 self._runing_prefetch_thread += 1
 
@@ -144,8 +155,17 @@ class _ThreadingVideoLoaderIterator:
                 self._update_load_speed(t1 - t0)
                 self._do_schedule()
 
+    def _join_prefetch_threads(self):
+        for t in self._threads:
+            t.join()
+
     def __next__(self):
+        if self.load_execption is not None:
+            self._join_prefetch_threads()
+            raise self.load_execption
+
         if self._finished and not self._prefetch:
+            self._join_prefetch_threads()
             raise StopIteration()
 
         with self._new_data:
