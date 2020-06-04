@@ -13,7 +13,7 @@ namespace huww {
 namespace videoloader {
 namespace {
 using FFGraphPtr =
-    std::unique_ptr<::AVFilterGraph, void (*)(::AVFilterGraph *&&)>;
+    std::unique_ptr<::AVFilterGraph, void (*)(::AVFilterGraph *)>;
 }
 
 class AVFilterGraph {

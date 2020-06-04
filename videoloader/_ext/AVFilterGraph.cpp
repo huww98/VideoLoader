@@ -18,7 +18,7 @@ namespace videoloader {
 auto allocAVFilterGraph() {
     return FFGraphPtr(
         CHECK_AV(avfilter_graph_alloc(), "failed to alloc AVFilterGraph"),
-        [](::AVFilterGraph *&&i) { avfilter_graph_free(&i); });
+        [](::AVFilterGraph *i) { avfilter_graph_free(&i); });
 }
 
 AVFilterGraph::AVFilterGraph(AVCodecContext &decodeContext, AVRational timeBase)

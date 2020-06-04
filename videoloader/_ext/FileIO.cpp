@@ -83,7 +83,7 @@ AVIOContextPtr FileIO::newAVIOContext(std::string filePath) {
             [](void *opaque, int64_t offset, int whence) {
                 return static_cast<FileIO *>(opaque)->seek(offset, whence);
             }),
-        [](AVIOContext *&&c) {
+        [](AVIOContext *c) {
             av_freep(&c->buffer);
             delete static_cast<FileIO *>(c->opaque);
             avio_context_free(&c);

@@ -15,19 +15,19 @@ namespace videoloader {
 
 Video VideoLoader::addVideoFile(std::string url) { return Video(url); }
 using AVCodecContextPtr =
-    std::unique_ptr<AVCodecContext, void (*)(AVCodecContext *&&)>;
+    std::unique_ptr<AVCodecContext, void (*)(AVCodecContext *)>;
 
 auto new_AVCodecContext(const AVCodec *codec) {
     return AVCodecContextPtr(
         CHECK_AV(avcodec_alloc_context3(codec), "alloc AVCodecContext failed"),
-        [](AVCodecContext *&&c) { avcodec_free_context(&c); });
+        [](AVCodecContext *c) { avcodec_free_context(&c); });
 }
 
-using AVPacketPtr = std::unique_ptr<AVPacket, void (*)(AVPacket *&&)>;
+using AVPacketPtr = std::unique_ptr<AVPacket, void (*)(AVPacket *)>;
 
 auto allocAVPacket() {
     return AVPacketPtr(CHECK_AV(av_packet_alloc(), "alloc AVPacket failed"),
-                       [](AVPacket *&&p) { av_packet_free(&p); });
+                       [](AVPacket *p) { av_packet_free(&p); });
 }
 
 Video::Video(std::string url) : format(url) {

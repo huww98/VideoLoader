@@ -36,11 +36,11 @@ inline int check_av(void *ptr) { return ptr == nullptr ? AVERROR(ENOMEM) : 0; }
         return __ret;                                                          \
     }()
 
-using AVFramePtr = std::unique_ptr<AVFrame, void (*)(AVFrame *&&)>;
+using AVFramePtr = std::unique_ptr<AVFrame, void (*)(AVFrame *)>;
 
 inline auto allocAVFrame() {
     return AVFramePtr(CHECK_AV(av_frame_alloc(), "alloc AVFrame failed"),
-                      [](AVFrame *&&f) { av_frame_free(&f); });
+                      [](AVFrame *f) { av_frame_free(&f); });
 }
 
 } // namespace videoloader
