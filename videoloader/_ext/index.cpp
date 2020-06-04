@@ -152,7 +152,7 @@ static PyObject *PyVideo_getBatch(PyVideo *self, PyObject *args) {
     if (iterator.get() == nullptr) {
         return nullptr;
     }
-    std::vector<int> indices;
+    std::vector<size_t> indices;
     while (true) {
         OwnedPyRef item = PyIter_Next(iterator.get());
         if (PyErr_Occurred()) {
@@ -161,7 +161,7 @@ static PyObject *PyVideo_getBatch(PyVideo *self, PyObject *args) {
         if (item.get() == nullptr) {
             break;
         }
-        auto idx = PyLong_AsLong(item.get());
+        auto idx = PyLong_AsSize_t(item.get());
         if (PyErr_Occurred()) {
             return nullptr;
         }

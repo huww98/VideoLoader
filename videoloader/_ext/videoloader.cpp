@@ -70,7 +70,7 @@ Video::Video(std::string url) : format(url) {
         // Adjust key frame index. although I think key frame position should
         // not change during sorting.
         std::vector<int> sortMap(packetIndex.size());
-        for (int i = 0; i < packetIndex.size(); i++) {
+        for (size_t i = 0; i < packetIndex.size(); i++) {
             sortMap[packetIndex[i].packetIndex] = i;
         }
         for (auto &entry : packetIndex) {
@@ -108,11 +108,11 @@ class VideoPacketScheduler {
     }
 
   public:
-    VideoPacketScheduler(const std::vector<int> &frameIndicesRequested,
+    VideoPacketScheduler(const std::vector<size_t> &frameIndicesRequested,
                          const std::vector<PacketIndexEntry> &index,
                          AVFormatContext *fmt_ctx, int streamIndex)
         : fmt_ctx(fmt_ctx), streamIndex(streamIndex), packet(allocAVPacket()) {
-        for (int f : frameIndicesRequested) {
+        for (size_t f : frameIndicesRequested) {
             auto &pktIndex = index[f];
             auto &entry = schedule[pktIndex.keyFrameIndex];
             entry.keyFramePts = index[pktIndex.keyFrameIndex].pts;
@@ -182,15 +182,15 @@ class VideoPacketScheduler {
 };
 
 struct FrameRequest {
-    int requestIndex;
+    size_t requestIndex;
     int64_t pts;
 };
 
-VideoDLPack Video::getBatch(const std::vector<int> &frameIndices) {
+VideoDLPack Video::getBatch(const std::vector<size_t> &frameIndices) {
     this->weakUp();
 
     std::vector<FrameRequest> request(frameIndices.size());
-    for (int i = 0; i < frameIndices.size(); i++) {
+    for (size_t i = 0; i < frameIndices.size(); i++) {
         auto frameIndex = frameIndices[i];
         if (frameIndex >= this->packetIndex.size()) {
             std::ostringstream msg;
