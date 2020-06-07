@@ -26,6 +26,9 @@ class VideoDatasetLoader:
     def __iter__(self):
         return _ThreadingVideoLoaderIterator(self)
 
+    def __len__(self):
+        return len(self.videos)
+
 
 class _PrefetchingVideo:
     __slots__ = ('loaded', 'data')
