@@ -91,6 +91,12 @@ static std::vector<LoadTask> initLoadTask(const DatasetLoadSchedule &schedule) {
 VideoDatasetLoader::VideoDatasetLoader(const DatasetLoadSchedule &schedule)
     : outputBuffer(initOutputBuffer(schedule)), loadTasks(initLoadTask(schedule)) {}
 
+VideoDatasetLoader::~VideoDatasetLoader() {
+    if (this->running) {
+        this->stop();
+    }
+};
+
 void VideoDatasetLoader::start(int maxThreads) {
     if (this->running.exchange(true, std::memory_order_relaxed)) {
         throw std::logic_error("This loader is already running");
@@ -126,6 +132,10 @@ void VideoDatasetLoader::loadWorker() {
         auto &output = this->outputBuffer[task.batchIndex];
         output.add(task.videoIndex, task.video.getBatch());
     }
+}
+
+bool VideoDatasetLoader::hasNextBatch() {
+    return this->nextBatchIndex.load() + 1 < this->outputBuffer.size();
 }
 
 std::vector<VideoDLPack> VideoDatasetLoader::getNextBatch() {

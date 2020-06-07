@@ -48,8 +48,10 @@ class VideoDatasetLoader {
 
   public:
     VideoDatasetLoader(const DatasetLoadSchedule &schedule);
+    ~VideoDatasetLoader();
     void start(int maxThreads);
     void stop();
+    bool hasNextBatch();
     std::vector<VideoDLPack> getNextBatch();
     VideoBatchDLPack getNextScaledBatch();
 };
