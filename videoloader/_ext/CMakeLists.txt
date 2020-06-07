@@ -16,7 +16,8 @@ set(VIDEO_LOADER_SRCS
     AVFormat.cpp
     FileIO.cpp
     AVFilterGraph.cpp
-    VideoDLPack.cpp)
+    VideoDLPack.cpp
+    VideoDatasetLoader.cpp)
 if(videoloader_NAME AND videoloader_DESTINATION)
     list(APPEND VIDEO_LOADER_SRCS
         index.cpp
