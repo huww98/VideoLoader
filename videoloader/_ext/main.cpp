@@ -1,6 +1,6 @@
+#include <chrono>
 #include <filesystem>
 #include <iostream>
-#include <chrono>
 
 #include "VideoDatasetLoader.h"
 #include "videoloader.h"
@@ -9,8 +9,8 @@
 using namespace huww::videoloader;
 using namespace std;
 
-constexpr int numThreads = 4;
-constexpr int batchSize = 63;
+constexpr int numThreads = 1;
+constexpr int batchSize = 32;
 
 int main(int argc, char const *argv[]) {
     // std::filesystem::path base = "/mnt/d/Downloads/answering_questions";
@@ -27,6 +27,11 @@ int main(int argc, char const *argv[]) {
 
     cout << videos.size() << " Videos opened" << endl;
 
+    vector<size_t> frames;
+    for (size_t i = 0; i < 16; i++) {
+        frames.push_back(i);
+    }
+
     DatasetLoadSchedule sche;
     sche.push_back({});
     for (auto &v : videos) {
@@ -35,7 +40,7 @@ int main(int argc, char const *argv[]) {
         }
         sche.rbegin()->push_back({
             .video = v,
-            .frameIndices = {0, 1, 2, 3},
+            .frameIndices = frames,
         });
     }
 
@@ -43,14 +48,14 @@ int main(int argc, char const *argv[]) {
     cout << "Start loading using " << numThreads << " threads" << endl;
     auto t1 = chrono::high_resolution_clock::now();
     dsloader.start(numThreads);
-    while (dsloader.hasNextBatch())
-    {
+    while (dsloader.hasNextBatch()) {
         auto data = dsloader.getNextBatch();
         cout << "Got a batch of " << data.size() << " clips" << endl;
     }
     dsloader.stop();
     auto t2 = chrono::high_resolution_clock::now();
-    cout << "Finished. Time: " << chrono::duration_cast<chrono::milliseconds>(t2 - t1).count() << "ms" << endl;
+    cout << "Finished. Time: " << chrono::duration_cast<chrono::milliseconds>(t2 - t1).count()
+         << "ms" << endl;
 
     return 0;
 }
