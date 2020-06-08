@@ -9,6 +9,9 @@
 using namespace huww::videoloader;
 using namespace std;
 
+constexpr int numThreads = 4;
+constexpr int batchSize = 63;
+
 int main(int argc, char const *argv[]) {
     // std::filesystem::path base = "/mnt/d/Downloads/answering_questions";
     std::filesystem::path base = "/tmp/answering_questions";
@@ -27,7 +30,7 @@ int main(int argc, char const *argv[]) {
     DatasetLoadSchedule sche;
     sche.push_back({});
     for (auto &v : videos) {
-        if (sche.rbegin()->size() == 16) {
+        if (sche.rbegin()->size() == batchSize) {
             sche.push_back({});
         }
         sche.rbegin()->push_back({
@@ -37,7 +40,6 @@ int main(int argc, char const *argv[]) {
     }
 
     VideoDatasetLoader dsloader(sche);
-    constexpr int numThreads = 2;
     cout << "Start loading using " << numThreads << " threads" << endl;
     auto t1 = chrono::high_resolution_clock::now();
     dsloader.start(numThreads);

@@ -131,11 +131,12 @@ void VideoDatasetLoader::loadWorker() {
         auto &task = this->loadTasks[taskIndex];
         auto &output = this->outputBuffer[task.batchIndex];
         output.add(task.videoIndex, task.video.getBatch());
+        task.video.video.sleep();
     }
 }
 
 bool VideoDatasetLoader::hasNextBatch() {
-    return this->nextBatchIndex.load() + 1 < this->outputBuffer.size();
+    return this->nextBatchIndex.load() < this->outputBuffer.size();
 }
 
 std::vector<VideoDLPack> VideoDatasetLoader::getNextBatch() {
