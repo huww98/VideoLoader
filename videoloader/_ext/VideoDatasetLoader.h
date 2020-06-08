@@ -2,11 +2,12 @@
 
 #include "videoloader.h"
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
+#include <deque>
 #include <optional>
-#include <vector>
 #include <thread>
-
+#include <vector>
 
 namespace huww {
 namespace videoloader {
@@ -35,16 +36,38 @@ class VideoBatchDLPack {};
 class BatchOutputBuffer;
 struct LoadTask;
 
+class SpeedEstimator {
+    using duration_t = std::chrono::duration<double>;
+    using clock_t = std::chrono::steady_clock;
+    clock_t::duration averageDuration;
+
+    struct Event {
+        int weight;
+        clock_t::time_point time;
+    };
+    std::deque<Event> events;
+    int totalWeight = 0;
+    std::atomic<double> _speed;
+
+  public:
+    SpeedEstimator(clock_t::duration averageDuration) : averageDuration(averageDuration) {}
+    void finish(int itemCount = 1);
+    duration_t speed();
+};
+
 class VideoDatasetLoader {
     std::vector<BatchOutputBuffer> outputBuffer;
     std::vector<LoadTask> loadTasks;
     std::atomic<size_t> nextTaskIndex = 0;
     std::atomic<bool> running = false;
-    std::vector<std::thread> workers;
+
+    struct Worker;
+    std::vector<Worker> workers;
 
     std::atomic<size_t> nextBatchIndex = 0;
+    SpeedEstimator getBatchSpeed;
 
-    void loadWorker();
+    void loadWorker(int workerIndex);
 
   public:
     VideoDatasetLoader(const DatasetLoadSchedule &schedule);
