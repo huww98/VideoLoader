@@ -43,7 +43,7 @@ struct LoadTask;
  */
 class SpeedEstimator {
   public:
-    using duration_t = std::chrono::duration<double>;
+    using duration_t = std::chrono::duration<double, std::milli>;
     using clock_t = std::chrono::steady_clock;
 
   private:
@@ -84,7 +84,7 @@ class VideoDatasetLoader {
 
     using clock_t = std::chrono::steady_clock;
     clock_t::time_point startTime;
-    clock_t::duration warmupDuration = std::chrono::seconds(2);
+    clock_t::duration warmupDuration = std::chrono::seconds(1);
     size_t maxPreload = 512;
     std::atomic<size_t> consumed = 0; /**< Number of videos comsumed by `getNextBatch()` */
 
@@ -103,6 +103,7 @@ class VideoDatasetLoader {
      * \note This is thread safe and will be called from every worker and getBatch thread.
      */
     void scheduleWorkers();
+    int calcNeededWorkers();
 
   public:
     class NoMoreBatch final : public std::logic_error {

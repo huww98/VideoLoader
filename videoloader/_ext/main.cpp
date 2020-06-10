@@ -5,6 +5,7 @@
 #include "VideoDatasetLoader.h"
 #include "videoloader.h"
 #include <unistd.h>
+#include <spdlog/spdlog.h>
 
 using namespace huww::videoloader;
 using namespace std;
@@ -13,6 +14,9 @@ constexpr int numThreads = 1;
 constexpr int batchSize = 32;
 
 int main(int argc, char const *argv[]) {
+    spdlog::set_pattern("[thread %t] %+");
+    spdlog::set_level(spdlog::level::trace);
+
     // std::filesystem::path base = "/mnt/d/Downloads/answering_questions";
     std::filesystem::path base = "/tmp/answering_questions";
     VideoLoader loader;
@@ -25,7 +29,7 @@ int main(int argc, char const *argv[]) {
         videos.push_back(move(video));
     }
 
-    cout << videos.size() << " Videos opened" << endl;
+    spdlog::info("{} videos opened.", videos.size());
 
     vector<size_t> frames;
     for (size_t i = 0; i < 16; i++) {
@@ -45,21 +49,20 @@ int main(int argc, char const *argv[]) {
     }
 
     VideoDatasetLoader dsloader(sche);
-    cout << "Start loading using " << numThreads << " threads" << endl;
+    spdlog::info("Start loading using {} threads", numThreads);
     auto t1 = chrono::high_resolution_clock::now();
     dsloader.start(numThreads);
     while (true) {
         try {
             auto data = dsloader.getNextBatch();
-            cout << "Got a batch of " << data.size() << " clips" << endl;
+            spdlog::info("Got a batch of {} clips", data.size());
         } catch (VideoDatasetLoader::NoMoreBatch &) {
             break;
         }
     }
     dsloader.stop();
     auto t2 = chrono::high_resolution_clock::now();
-    cout << "Finished. Time: " << chrono::duration_cast<chrono::milliseconds>(t2 - t1).count()
-         << "ms" << endl;
+    spdlog::info("Finished. Time: {}ms", chrono::duration_cast<chrono::milliseconds>(t2 - t1).count());
 
     return 0;
 }

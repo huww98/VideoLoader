@@ -5,6 +5,7 @@
 
 #include <assert.h>
 #include <pthread.h>
+#include <spdlog/spdlog.h>
 
 namespace huww {
 
@@ -148,7 +149,7 @@ struct VideoDatasetLoader::Worker {
     std::condition_variable activeCV;
     SpeedEstimator speed;
 
-    Worker() : speed(3s) {}
+    Worker() : speed(2s) {}
 };
 
 void VideoDatasetLoader::start(int maxThreads) {
@@ -186,38 +187,52 @@ void VideoDatasetLoader::stop() {
     this->workers.clear();
 }
 
-void VideoDatasetLoader::scheduleWorkers() {
+int VideoDatasetLoader::calcNeededWorkers() {
     int activeWorkerCount = this->activeWorkerCount.load(std::memory_order_relaxed);
-    int newActiveWorkerCount;
 
     auto consumed = this->consumed.load(std::memory_order_relaxed);
     auto loaded = this->nextTaskIndex.load(std::memory_order_relaxed);
     auto canLoad = this->maxPreload - (loaded - consumed);
     if (canLoad <= 0) {
         // Hit max preload limit, pause all workers.
-        newActiveWorkerCount = 0;
-    } else {
-        auto runningTime = clock_t::now() - startTime;
-        if (runningTime < warmupDuration) {
-            // Warming up, use all workers.
-            newActiveWorkerCount = workers.size();
-        } else {
-            auto getBatchSpeed = this->getBatchSpeed.speed();
-
-            // Estimate average load speed.
-            SpeedEstimator::duration_t loadSpeed;
-            for (int i = 0; i < activeWorkerCount; i++) {
-                loadSpeed += this->workers[i].speed.speed();
-            }
-            loadSpeed /= activeWorkerCount;
-
-            // We want load speed slightly faster than comsume.
-            newActiveWorkerCount = static_cast<int>(std::ceil(getBatchSpeed * 1.05 / loadSpeed));
-            // Don't overshoot preload limit too much.
-            newActiveWorkerCount = std::min(newActiveWorkerCount, (int)canLoad);
-        }
+        SPDLOG_TRACE("Hit max preload limit");
+        return 0;
+    }
+    auto runningTime = clock_t::now() - startTime;
+    if (runningTime < warmupDuration) {
+        // Warming up, use all workers.
+        SPDLOG_TRACE("Warming up");
+        return workers.size();
+    }
+    auto getBatchSpeed = this->getBatchSpeed.speed();
+    if (std::isnan(getBatchSpeed.count())) {
+        SPDLOG_TRACE("No enough consume speed estimation");
+        return workers.size();
     }
 
+    // Estimate average load speed.
+    SpeedEstimator::duration_t loadSpeed = {};
+    for (int i = 0; i < activeWorkerCount; i++) {
+        loadSpeed += this->workers[i].speed.speed();
+    }
+    if (std::isnan(loadSpeed.count())) {
+        SPDLOG_TRACE("No enough load speed estimation");
+        return workers.size();
+    }
+    loadSpeed /= activeWorkerCount;
+
+    // We want load speed slightly faster than comsume.
+    int newActiveWorkerCount = static_cast<int>(std::ceil(getBatchSpeed * 1.05 / loadSpeed));
+    // Don't overshoot preload limit too much.
+    newActiveWorkerCount = std::min(newActiveWorkerCount, (int)canLoad);
+    newActiveWorkerCount = std::min(newActiveWorkerCount, (int)workers.size());
+    SPDLOG_TRACE("Scheduling workers. consume speed: {:.3f}ms; load speed: {:.3f}ms; workers: {}",
+                  getBatchSpeed.count(), loadSpeed.count(), newActiveWorkerCount);
+    return newActiveWorkerCount;
+}
+
+void VideoDatasetLoader::scheduleWorkers() {
+    int newActiveWorkerCount = this->calcNeededWorkers();
     this->activeWorkerCount.store(newActiveWorkerCount, std::memory_order_relaxed);
     { std::lock_guard lk(this->activeWorker_m); }
     for (int i = 0; i < newActiveWorkerCount; i++) {

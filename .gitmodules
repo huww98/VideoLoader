@@ -1,0 +1,3 @@
+[submodule "videoloader/_ext/third_party/spdlog"]
+	path = videoloader/_ext/third_party/spdlog
+	url = https://github.com/gabime/spdlog.git
