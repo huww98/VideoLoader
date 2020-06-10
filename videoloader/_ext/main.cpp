@@ -48,9 +48,13 @@ int main(int argc, char const *argv[]) {
     cout << "Start loading using " << numThreads << " threads" << endl;
     auto t1 = chrono::high_resolution_clock::now();
     dsloader.start(numThreads);
-    while (dsloader.hasNextBatch()) {
-        auto data = dsloader.getNextBatch();
-        cout << "Got a batch of " << data.size() << " clips" << endl;
+    while (true) {
+        try {
+            auto data = dsloader.getNextBatch();
+            cout << "Got a batch of " << data.size() << " clips" << endl;
+        } catch (VideoDatasetLoader::NoMoreBatch &) {
+            break;
+        }
     }
     dsloader.stop();
     auto t2 = chrono::high_resolution_clock::now();

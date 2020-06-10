@@ -18,21 +18,41 @@ namespace videoloader {
 
 using namespace std::chrono_literals;
 
+SpeedEstimator::SpeedEstimator(clock_t::duration averageDuration)
+    : averageDuration(averageDuration) {
+    this->events.push_back({
+        .weight = 0,
+        .time = {},
+    });
+    this->start();
+}
+
+void SpeedEstimator::start() { this->startTime = clock_t::now(); }
+
 void SpeedEstimator::finish(int itemCount) {
-    auto now = clock_t::now();
+    auto duration = clock_t::now() - startTime;
+    this->finish(duration, itemCount);
+}
+
+void SpeedEstimator::finish(clock_t::duration duration, int itemCount) {
+    auto nextTimePoint = duration + events.rbegin()->time;
     events.push_back({
         .weight = itemCount,
-        .time = now,
+        .time = nextTimePoint,
     });
     totalWeight += itemCount;
-    while (now - events.begin()->time > averageDuration) {
+    while (nextTimePoint - events.begin()->time > averageDuration) {
         auto &expired = *events.begin();
         totalWeight -= expired.weight;
         events.pop_front();
     }
 
-    duration_t dur = events.rbegin()->time - events.begin()->time;
-    this->_speed.store((dur / totalWeight).count(), std::memory_order_relaxed);
+    double speed = NAN;
+    if (events.size() > 1) {
+        duration_t dur = events.rbegin()->time - events.begin()->time;
+        speed = (dur / totalWeight).count();
+    }
+    this->_speed.store(speed, std::memory_order_relaxed);
 }
 
 auto SpeedEstimator::speed() -> duration_t {
@@ -125,6 +145,7 @@ VideoDatasetLoader::~VideoDatasetLoader() {
 
 struct VideoDatasetLoader::Worker {
     std::thread thread;
+    std::condition_variable activeCV;
     SpeedEstimator speed;
 
     Worker() : speed(3s) {}
@@ -134,6 +155,8 @@ void VideoDatasetLoader::start(int maxThreads) {
     if (this->running.exchange(true, std::memory_order_relaxed)) {
         throw std::logic_error("This loader is already running");
     }
+    this->startTime = clock_t::now();
+    this->activeWorkerCount = maxThreads;
     this->workers = std::vector<Worker>(maxThreads);
     for (int i = 0; i < maxThreads; i++) {
         auto &w = this->workers[i];
@@ -150,10 +173,56 @@ void VideoDatasetLoader::stop() {
     if (!this->running.exchange(false, std::memory_order_relaxed)) {
         throw std::logic_error("This loader is already stopped");
     }
+    // Wake up all workers.
+    this->activeWorkerCount = this->workers.size();
+    { std::lock_guard lk(this->activeWorker_m); }
+    for (auto &w : this->workers) {
+        w.activeCV.notify_one();
+    }
+
     for (auto &w : this->workers) {
         w.thread.join();
     }
     this->workers.clear();
+}
+
+void VideoDatasetLoader::scheduleWorkers() {
+    int activeWorkerCount = this->activeWorkerCount.load(std::memory_order_relaxed);
+    int newActiveWorkerCount;
+
+    auto consumed = this->consumed.load(std::memory_order_relaxed);
+    auto loaded = this->nextTaskIndex.load(std::memory_order_relaxed);
+    auto canLoad = this->maxPreload - (loaded - consumed);
+    if (canLoad <= 0) {
+        // Hit max preload limit, pause all workers.
+        newActiveWorkerCount = 0;
+    } else {
+        auto runningTime = clock_t::now() - startTime;
+        if (runningTime < warmupDuration) {
+            // Warming up, use all workers.
+            newActiveWorkerCount = workers.size();
+        } else {
+            auto getBatchSpeed = this->getBatchSpeed.speed();
+
+            // Estimate average load speed.
+            SpeedEstimator::duration_t loadSpeed;
+            for (int i = 0; i < activeWorkerCount; i++) {
+                loadSpeed += this->workers[i].speed.speed();
+            }
+            loadSpeed /= activeWorkerCount;
+
+            // We want load speed slightly faster than comsume.
+            newActiveWorkerCount = static_cast<int>(std::ceil(getBatchSpeed * 1.05 / loadSpeed));
+            // Don't overshoot preload limit too much.
+            newActiveWorkerCount = std::min(newActiveWorkerCount, (int)canLoad);
+        }
+    }
+
+    this->activeWorkerCount.store(newActiveWorkerCount, std::memory_order_relaxed);
+    { std::lock_guard lk(this->activeWorker_m); }
+    for (int i = 0; i < newActiveWorkerCount; i++) {
+        workers[i].activeCV.notify_one();
+    }
 }
 
 void VideoDatasetLoader::loadWorker(int workerIndex) {
@@ -163,23 +232,35 @@ void VideoDatasetLoader::loadWorker(int workerIndex) {
         if (taskIndex >= this->loadTasks.size()) {
             break;
         }
+
+        worker.speed.start();
         auto &task = this->loadTasks[taskIndex];
         auto &output = this->outputBuffer[task.batchIndex];
         output.add(task.videoIndex, task.video.getBatch());
         task.video.video.sleep();
         worker.speed.finish(1);
-    }
-}
 
-bool VideoDatasetLoader::hasNextBatch() {
-    return this->nextBatchIndex.load() < this->outputBuffer.size();
+        this->scheduleWorkers();
+        auto isActive = [this, workerIndex] {
+            return this->activeWorkerCount.load(std::memory_order_relaxed) >= workerIndex;
+        };
+        if (!isActive()) {
+            std::unique_lock lk(this->activeWorker_m);
+            worker.activeCV.wait(lk, isActive);
+        }
+    }
 }
 
 std::vector<VideoDLPack> VideoDatasetLoader::getNextBatch() {
     auto batchIndex = this->nextBatchIndex.fetch_add(1);
+    if (batchIndex >= this->outputBuffer.size()) {
+        throw NoMoreBatch();
+    }
     auto &output = this->outputBuffer[batchIndex];
     output.waitUntilFull();
+    this->consumed.fetch_add(output.size(), std::memory_order_relaxed);
     this->getBatchSpeed.finish(output.size());
+    this->scheduleWorkers();
     return output.transferData();
 }
 
