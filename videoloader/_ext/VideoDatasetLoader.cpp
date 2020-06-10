@@ -136,7 +136,7 @@ static std::vector<LoadTask> initLoadTask(const DatasetLoadSchedule &schedule) {
 
 VideoDatasetLoader::VideoDatasetLoader(const DatasetLoadSchedule &schedule)
     : outputBuffer(initOutputBuffer(schedule)), loadTasks(initLoadTask(schedule)),
-      getBatchSpeed(10s) {}
+      consumeSpeed(10s) {}
 
 VideoDatasetLoader::~VideoDatasetLoader() {
     if (this->running) {
@@ -204,8 +204,8 @@ int VideoDatasetLoader::calcNeededWorkers() {
         SPDLOG_TRACE("Warming up");
         return workers.size();
     }
-    auto getBatchSpeed = this->getBatchSpeed.speed();
-    if (std::isnan(getBatchSpeed.count())) {
+    auto consumeSpeed = this->consumeSpeed.speed();
+    if (std::isnan(consumeSpeed.count())) {
         SPDLOG_TRACE("No enough consume speed estimation");
         return workers.size();
     }
@@ -222,12 +222,12 @@ int VideoDatasetLoader::calcNeededWorkers() {
     loadSpeed /= activeWorkerCount;
 
     // We want load speed slightly faster than comsume.
-    int newActiveWorkerCount = static_cast<int>(std::ceil(getBatchSpeed * 1.05 / loadSpeed));
+    int newActiveWorkerCount = static_cast<int>(std::ceil(consumeSpeed * 1.05 / loadSpeed));
     // Don't overshoot preload limit too much.
     newActiveWorkerCount = std::min(newActiveWorkerCount, (int)canLoad);
     newActiveWorkerCount = std::min(newActiveWorkerCount, (int)workers.size());
     SPDLOG_TRACE("Scheduling workers. consume speed: {:.3f}ms; load speed: {:.3f}ms; workers: {}",
-                  getBatchSpeed.count(), loadSpeed.count(), newActiveWorkerCount);
+                  consumeSpeed.count(), loadSpeed.count(), newActiveWorkerCount);
     return newActiveWorkerCount;
 }
 
@@ -271,12 +271,17 @@ std::vector<VideoDLPack> VideoDatasetLoader::getNextBatch() {
     if (batchIndex >= this->outputBuffer.size()) {
         throw NoMoreBatch();
     }
+    this->consumeSpeed.finish(lastBatchSize);
+    this->scheduleWorkers();
+
     auto &output = this->outputBuffer[batchIndex];
     output.waitUntilFull();
     this->consumed.fetch_add(output.size(), std::memory_order_relaxed);
-    this->getBatchSpeed.finish(output.size());
-    this->scheduleWorkers();
-    return output.transferData();
+    this->lastBatchSize = output.size();
+    
+    auto loadedBatch = output.transferData();
+    this->consumeSpeed.start();
+    return loadedBatch;
 }
 
 VideoBatchDLPack VideoDatasetLoader::getNextScaledBatch() {
