@@ -4,14 +4,23 @@
 
 #include "VideoDatasetLoader.h"
 #include "videoloader.h"
-#include <unistd.h>
 #include <spdlog/spdlog.h>
+#include <unistd.h>
 
 using namespace huww::videoloader;
 using namespace std;
 
 constexpr int numThreads = 2;
 constexpr int batchSize = 32;
+
+vector<size_t> frames(const Video& v) {
+    size_t num = min(v.numFrames(), (size_t)16);
+    vector<size_t> frames;
+    for (size_t i = 0; i < num; i++) {
+        frames.push_back(i);
+    }
+    return frames;
+}
 
 int main(int argc, char const *argv[]) {
     spdlog::set_pattern("[thread %t] %+");
@@ -31,11 +40,6 @@ int main(int argc, char const *argv[]) {
 
     spdlog::info("{} videos opened.", videos.size());
 
-    vector<size_t> frames;
-    for (size_t i = 0; i < 16; i++) {
-        frames.push_back(i);
-    }
-
     DatasetLoadSchedule sche;
     sche.push_back({});
     for (auto &v : videos) {
@@ -44,7 +48,7 @@ int main(int argc, char const *argv[]) {
         }
         sche.rbegin()->push_back({
             .video = v,
-            .frameIndices = frames,
+            .frameIndices = frames(v),
         });
     }
 
@@ -62,7 +66,8 @@ int main(int argc, char const *argv[]) {
     }
     dsloader.stop();
     auto t2 = chrono::high_resolution_clock::now();
-    spdlog::info("Finished. Time: {}ms", chrono::duration_cast<chrono::milliseconds>(t2 - t1).count());
+    spdlog::info("Finished. Time: {} ms",
+                 chrono::duration_cast<chrono::milliseconds>(t2 - t1).count());
 
     return 0;
 }

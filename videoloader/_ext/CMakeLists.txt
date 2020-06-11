@@ -10,6 +10,7 @@ set(LOG_LEVEL "$<IF:$<CONFIG:Debug>,0,2>" CACHE STRING "compile time logging lev
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE ON)
 add_compile_options(-Wall)
 
 set(VIDEO_LOADER_SRCS
@@ -34,8 +35,6 @@ else()
     add_compile_options("$<$<CONFIG:DEBUG>:-fomit-frame-pointer;-fsanitize=address>")
     add_link_options("$<$<CONFIG:DEBUG>:-fomit-frame-pointer;-fsanitize=address>")
 endif()
-add_compile_options("$<$<NOT:$<CONFIG:Debug>>:-flto>")
-add_link_options("$<$<NOT:$<CONFIG:Debug>>:-flto>")
 
 find_package(AvCodec REQUIRED)
 find_package(AvFormat REQUIRED)
