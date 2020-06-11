@@ -222,11 +222,11 @@ int VideoDatasetLoader::calcNeededWorkers() {
     loadSpeed /= activeWorkerCount;
 
     // We want load speed slightly faster than comsume.
-    int newActiveWorkerCount = static_cast<int>(std::ceil(consumeSpeed * 1.05 / loadSpeed));
+    int newActiveWorkerCount = static_cast<int>(std::ceil(loadSpeed / (consumeSpeed * 0.95)));
     // Don't overshoot preload limit too much.
     newActiveWorkerCount = std::min(newActiveWorkerCount, (int)canLoad);
     newActiveWorkerCount = std::min(newActiveWorkerCount, (int)workers.size());
-    SPDLOG_TRACE("Scheduling workers. consume speed: {:.3f}ms; load speed: {:.3f}ms; workers: {}",
+    SPDLOG_TRACE("Scheduling workers. consume speed: {:.3f} ms; load speed: {:.3f} ms; workers: {}",
                   consumeSpeed.count(), loadSpeed.count(), newActiveWorkerCount);
     return newActiveWorkerCount;
 }
@@ -257,7 +257,7 @@ void VideoDatasetLoader::loadWorker(int workerIndex) {
 
         this->scheduleWorkers();
         auto isActive = [this, workerIndex] {
-            return this->activeWorkerCount.load(std::memory_order_relaxed) >= workerIndex;
+            return this->activeWorkerCount.load(std::memory_order_relaxed) > workerIndex;
         };
         if (!isActive()) {
             std::unique_lock lk(this->activeWorker_m);
@@ -267,7 +267,7 @@ void VideoDatasetLoader::loadWorker(int workerIndex) {
 }
 
 std::vector<VideoDLPack> VideoDatasetLoader::getNextBatch() {
-    auto batchIndex = this->nextBatchIndex.fetch_add(1);
+    auto batchIndex = this->nextBatchIndex++;
     if (batchIndex >= this->outputBuffer.size()) {
         throw NoMoreBatch();
     }

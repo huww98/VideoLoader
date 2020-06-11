@@ -10,7 +10,7 @@
 using namespace huww::videoloader;
 using namespace std;
 
-constexpr int numThreads = 1;
+constexpr int numThreads = 2;
 constexpr int batchSize = 32;
 
 int main(int argc, char const *argv[]) {

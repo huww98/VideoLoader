@@ -88,8 +88,8 @@ class VideoDatasetLoader {
     size_t maxPreload = 512;
     std::atomic<size_t> consumed = 0; /**< Number of videos comsumed by `getNextBatch()` */
 
-    std::atomic<size_t> nextBatchIndex = 0;
-    size_t lastBatchSize;
+    size_t nextBatchIndex = 0;
+    size_t lastBatchSize = 0;
     SpeedEstimator consumeSpeed;
 
     /** Main entrypoint of worker threads. */
@@ -129,8 +129,6 @@ class VideoDatasetLoader {
      * Get next batch of data
      *
      * Will block until at least one batch of data avaliable. Can only used in one thread.
-     * 
-     * \todo Can be called from multiple threads, each thread will get a different batch.
      */
     std::vector<VideoDLPack> getNextBatch();
 
