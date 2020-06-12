@@ -47,18 +47,17 @@ void SpeedEstimator::finish(clock_t::duration duration, int itemCount) {
         .time = nextTimePoint,
     });
     totalWeight += itemCount;
-    while (nextTimePoint - events.begin()->time > averageDuration) {
+    while (nextTimePoint - events.begin()->time > averageDuration && events.size() > 2) {
         auto &expired = *events.begin();
         totalWeight -= expired.weight;
         events.pop_front();
     }
 
-    double speed = NAN;
     if (events.size() > 1) {
         duration_t dur = events.rbegin()->time - events.begin()->time;
-        speed = (dur / totalWeight).count();
+        auto speed = (dur / totalWeight).count();
+        this->_speed.store(speed, std::memory_order_relaxed);
     }
-    this->_speed.store(speed, std::memory_order_relaxed);
 }
 
 auto SpeedEstimator::speed() -> duration_t {
@@ -216,15 +215,21 @@ int VideoDatasetLoader::calcNeededWorkers() {
     }
 
     // Estimate average load speed.
-    SpeedEstimator::duration_t loadSpeed = {};
-    for (int i = 0; i < activeWorkerCount; i++) {
-        loadSpeed += this->workers[i].speed.speed();
+    SpeedEstimator::duration_t loadSpeed;
+    if (activeWorkerCount == 0) {
+        // Recover from pause.
+        loadSpeed = this->workers[0].speed.speed();
+    } else {
+        loadSpeed = {};
+        for (int i = 0; i < activeWorkerCount; i++) {
+            loadSpeed += this->workers[i].speed.speed();
+        }
+        if (std::isnan(loadSpeed.count())) {
+            SPDLOG_TRACE("No enough load speed estimation");
+            return workers.size();
+        }
+        loadSpeed /= activeWorkerCount;
     }
-    if (std::isnan(loadSpeed.count())) {
-        SPDLOG_TRACE("No enough load speed estimation");
-        return workers.size();
-    }
-    loadSpeed /= activeWorkerCount;
 
     // We want load speed slightly faster than comsume.
     int newActiveWorkerCount = static_cast<int>(std::ceil(loadSpeed / (consumeSpeed * 0.95)));
@@ -232,7 +237,7 @@ int VideoDatasetLoader::calcNeededWorkers() {
     newActiveWorkerCount = std::min(newActiveWorkerCount, (int)canLoad);
     newActiveWorkerCount = std::min(newActiveWorkerCount, (int)workers.size());
     SPDLOG_TRACE("Scheduling workers. consume speed: {:.3f} ms; load speed: {:.3f} ms; workers: {}",
-                  consumeSpeed.count(), loadSpeed.count(), newActiveWorkerCount);
+                 consumeSpeed.count(), loadSpeed.count(), newActiveWorkerCount);
     return newActiveWorkerCount;
 }
 
@@ -283,7 +288,7 @@ std::vector<VideoDLPack> VideoDatasetLoader::getNextBatch() {
     output.waitUntilFull();
     this->consumed.fetch_add(output.size(), std::memory_order_relaxed);
     this->lastBatchSize = output.size();
-    
+
     auto loadedBatch = output.transferData();
     this->consumeSpeed.start();
     return loadedBatch;
