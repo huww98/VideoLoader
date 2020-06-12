@@ -153,7 +153,7 @@ struct VideoDatasetLoader::Worker {
     std::condition_variable activeCV;
     SpeedEstimator speed;
 
-    Worker() : speed(2s) {}
+    Worker() : speed(3s) {}
 };
 
 void VideoDatasetLoader::start(int maxThreads) {
