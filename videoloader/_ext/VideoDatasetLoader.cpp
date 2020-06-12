@@ -282,13 +282,13 @@ std::vector<VideoDLPack> VideoDatasetLoader::getNextBatch() {
         throw NoMoreBatch();
     }
     this->consumeSpeed.finish(lastBatchSize);
-    this->scheduleWorkers();
 
     auto &output = this->outputBuffer[batchIndex];
     output.waitUntilFull();
     this->consumed.fetch_add(output.size(), std::memory_order_relaxed);
-    this->lastBatchSize = output.size();
+    this->scheduleWorkers(); // should goes after `consumed` updated
 
+    this->lastBatchSize = output.size();
     auto loadedBatch = output.transferData();
     this->consumeSpeed.start();
     return loadedBatch;
