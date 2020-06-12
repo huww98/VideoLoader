@@ -55,7 +55,7 @@ class SpeedEstimator {
     };
     clock_t::time_point startTime;
     std::deque<Event> events;
-    int totalWeight = 0;
+    int totalWeight;
     std::atomic<double> _speed;
 
   public:

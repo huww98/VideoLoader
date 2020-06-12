@@ -20,7 +20,7 @@ namespace videoloader {
 using namespace std::chrono_literals;
 
 SpeedEstimator::SpeedEstimator(clock_t::duration averageDuration)
-    : averageDuration(averageDuration) {
+    : averageDuration(averageDuration), totalWeight(0), _speed(NAN) {
     this->events.push_back({
         .weight = 0,
         .time = {},

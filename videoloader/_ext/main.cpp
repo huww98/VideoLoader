@@ -40,7 +40,7 @@ int main(int argc, char const *argv[]) {
         // video.getBatch({14, 15});
         videos.push_back(move(video));
         if (videos.size() % 1000 == 0) {
-            spdlog::info("{} videos opend...", videos.size());
+            spdlog::info("{} videos opened...", videos.size());
         }
     }
 
