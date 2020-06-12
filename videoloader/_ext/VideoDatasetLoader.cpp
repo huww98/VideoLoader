@@ -36,6 +36,11 @@ void SpeedEstimator::finish(int itemCount) {
 }
 
 void SpeedEstimator::finish(clock_t::duration duration, int itemCount) {
+    assert(itemCount >= 0);
+    if (itemCount == 0) {
+        return;
+    }
+
     auto nextTimePoint = duration + events.rbegin()->time;
     events.push_back({
         .weight = itemCount,
