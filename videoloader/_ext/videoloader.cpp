@@ -230,7 +230,7 @@ VideoDLPack Video::getBatch(const std::vector<size_t> &frameIndices) {
             auto packet = packetScheduler.next();
             CHECK_AV(avcodec_send_packet(decodeContext.get(), packet),
                      "send packet to decoder failed");
-            SPDLOG_TRACE("Send packet DTS {} PTS {}", packet->dts, packet->dts);
+            SPDLOG_TRACE("Send packet DTS {} PTS {}", packet->dts, packet->pts);
             packetScheduler.consume();
         }
 
