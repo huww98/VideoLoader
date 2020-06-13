@@ -199,18 +199,18 @@ int VideoDatasetLoader::calcNeededWorkers() {
     auto canLoad = this->maxPreload - (loaded - consumed);
     if (canLoad <= 0) {
         // Hit max preload limit, pause all workers.
-        SPDLOG_TRACE("Hit max preload limit");
+        SPDLOG_DEBUG("Hit max preload limit");
         return 0;
     }
     auto runningTime = clock_t::now() - startTime;
     if (runningTime < warmupDuration) {
         // Warming up, use all workers.
-        SPDLOG_TRACE("Warming up");
+        SPDLOG_DEBUG("Warming up");
         return workers.size();
     }
     auto consumeSpeed = this->consumeSpeed.speed();
     if (std::isnan(consumeSpeed.count())) {
-        SPDLOG_TRACE("No enough consume speed estimation");
+        SPDLOG_DEBUG("No enough consume speed estimation");
         return workers.size();
     }
 
@@ -225,7 +225,7 @@ int VideoDatasetLoader::calcNeededWorkers() {
             loadSpeed += this->workers[i].speed.speed();
         }
         if (std::isnan(loadSpeed.count())) {
-            SPDLOG_TRACE("No enough load speed estimation");
+            SPDLOG_DEBUG("No enough load speed estimation");
             return workers.size();
         }
         loadSpeed /= activeWorkerCount;
@@ -236,7 +236,7 @@ int VideoDatasetLoader::calcNeededWorkers() {
     // Don't overshoot preload limit too much.
     newActiveWorkerCount = std::min(newActiveWorkerCount, (int)canLoad);
     newActiveWorkerCount = std::min(newActiveWorkerCount, (int)workers.size());
-    SPDLOG_TRACE("Scheduling workers. consume speed: {:.3f} ms; load speed: {:.3f} ms; workers: {}",
+    SPDLOG_DEBUG("Scheduling workers. consume speed: {:.3f} ms; load speed: {:.3f} ms; workers: {}",
                  consumeSpeed.count(), loadSpeed.count(), newActiveWorkerCount);
     return newActiveWorkerCount;
 }

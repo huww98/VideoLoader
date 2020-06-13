@@ -8,6 +8,8 @@
 #include <sstream>
 #include <unordered_set>
 
+#include <spdlog/spdlog.h>
+
 #include "av_utils.h"
 
 namespace huww {
@@ -228,6 +230,7 @@ VideoDLPack Video::getBatch(const std::vector<size_t> &frameIndices) {
             auto packet = packetScheduler.next();
             CHECK_AV(avcodec_send_packet(decodeContext.get(), packet),
                      "send packet to decoder failed");
+            SPDLOG_TRACE("Send packet DTS {} PTS {}", packet->dts, packet->dts);
             packetScheduler.consume();
         }
 
@@ -241,12 +244,15 @@ VideoDLPack Video::getBatch(const std::vector<size_t> &frameIndices) {
                 break;
             }
             CHECK_AV(ret, "receive frame from decoder failed");
+            SPDLOG_TRACE("Received frame PTS {}", frame->pts);
 
             if (frame->pts == nextRequest->pts) {
                 auto filteredFrame = fg.processFrame(frame.get());
+                SPDLOG_TRACE("Filtered frame PTS {}", filteredFrame->pts);
                 do {
                     pack.copyFromFrame(filteredFrame,
                                        nextRequest->requestIndex);
+                    SPDLOG_TRACE("Copied to index {}", nextRequest->requestIndex);
                     nextRequest++;
                 } while (nextRequest != request.cend() &&
                          filteredFrame->pts == nextRequest->pts);
