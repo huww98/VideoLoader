@@ -25,7 +25,7 @@ struct Video {
     std::optional<Crop> crop;
     std::optional<Scale> scale;
 
-    auto getBatch() { return video.getBatch(frameIndices); }
+    auto getBatch(DLPackPool *pool = nullptr) { return video.getBatch(frameIndices, pool); }
 };
 using Batch = std::vector<Video>;
 using schedule = std::vector<Batch>;

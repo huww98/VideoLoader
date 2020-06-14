@@ -246,6 +246,7 @@ void VideoDatasetLoader::scheduleWorkers() {
 
 void VideoDatasetLoader::loadWorker(int workerIndex) {
     auto &worker = this->workers[workerIndex];
+    DLPackPool pool;
     while (this->running.load(std::memory_order_relaxed)) {
         auto taskIndex = this->nextTaskIndex.fetch_add(1, std::memory_order_relaxed);
         if (taskIndex >= this->loadTasks.size()) {
@@ -255,7 +256,7 @@ void VideoDatasetLoader::loadWorker(int workerIndex) {
         worker.speed.start();
         auto &task = this->loadTasks[taskIndex];
         auto &output = this->outputBuffer[task.batchIndex];
-        output.add(task.videoIndex, task.video.getBatch());
+        output.add(task.videoIndex, task.video.getBatch(&pool));
         task.video.video.sleep();
         worker.speed.finish(1);
 

@@ -182,7 +182,8 @@ struct FrameRequest {
     int64_t pts;
 };
 
-VideoDLPack::ptr Video::getBatch(const std::vector<size_t> &frameIndices) {
+VideoDLPack::ptr Video::getBatch(const std::vector<size_t> &frameIndices,
+                                 DLPackPool *pool) {
     this->weakUp();
 
     std::vector<FrameRequest> request(frameIndices.size());
@@ -210,7 +211,7 @@ VideoDLPack::ptr Video::getBatch(const std::vector<size_t> &frameIndices) {
     CHECK_AV(avcodec_open2(decodeContext.get(), decoder, nullptr), "open decoder failed");
 
     AVFilterGraph fg(*decodeContext.get(), currentStream().time_base);
-    VideoDLPackBuilder packBuilder(request.size());
+    VideoDLPackBuilder packBuilder(request.size(), pool);
     auto nextRequest = request.cbegin();
 
     auto frame = allocAVFrame();

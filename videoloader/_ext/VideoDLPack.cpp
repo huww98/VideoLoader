@@ -2,6 +2,7 @@
 
 #include <array>
 #include <assert.h>
+#include <spdlog/spdlog.h>
 
 namespace huww {
 namespace videoloader {
@@ -92,9 +93,11 @@ class DLPackPoolContext {
         {
             std::lock_guard lk(m);
             handedOutPack--;
+            assert(handedOutPack >= 0);
             if (poolAlive) {
-                pool->returnPack(VideoDLPack::ptr(dlTensor));
+                pool->returnPackInternal(dlTensor);
             } else {
+                SPDLOG_TRACE("Pool disposed, freeing DLTensor.");
                 freePooledDLPack(dlTensor);
             }
             deleteContext = handedOutPack == 0 && !poolAlive;
@@ -113,6 +116,7 @@ DLPackPool::~DLPackPool() {
     {
         std::lock_guard lk(context->m);
         context->poolAlive = false;
+        context->pool = nullptr;
         for (auto &[_, dlTensor] : this->pool) {
             freePooledDLPack(dlTensor);
         }
@@ -125,10 +129,15 @@ DLPackPool::~DLPackPool() {
 
 VideoDLPack::ptr DLPackPool::get(size_t size) {
     std::lock_guard lk(context->m);
+    context->handedOutPack++;
     auto it = pool.lower_bound(size);
     if (it != pool.end() && it->first < size * 2) {
-        return VideoDLPack::ptr(it->second);
+        SPDLOG_TRACE("Reusing DLTensor of size {} for request of size {}", it->first, size);
+        auto reusedTensor = it->second;
+        pool.erase(it);
+        return VideoDLPack::ptr(reusedTensor);
     }
+    SPDLOG_TRACE("Allocating new DLTensor of size {}", size);
     auto newTensor = VideoDLPack::alloc(size);
     newTensor->manager_ctx = new PooledDLPackState{
         .size = size,
@@ -141,13 +150,18 @@ VideoDLPack::ptr DLPackPool::get(size_t size) {
     return newTensor;
 }
 
-void DLPackPool::returnPack(VideoDLPack::ptr &&pack) {
-    auto ctx = static_cast<PooledDLPackState *>(pack->manager_ctx);
+void DLPackPool::returnPackInternal(DLManagedTensor *dlTensor) {
+    auto ctx = static_cast<PooledDLPackState *>(dlTensor->manager_ctx);
     assert(&ctx->poolContext == context);
 
-    std::lock_guard lk(context->m);
     auto it = pool.lower_bound(ctx->size);
-    pool.insert(it, {ctx->size, pack.release()});
+    pool.insert(it, {ctx->size, dlTensor});
+    SPDLOG_TRACE("Returned DLTensor of size {}", ctx->size);
+}
+
+void DLPackPool::returnPack(VideoDLPack::ptr &&pack) {
+    std::lock_guard lk(context->m);
+    this->returnPackInternal(pack.release());
 }
 
 } // namespace videoloader

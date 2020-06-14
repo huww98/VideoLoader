@@ -30,6 +30,9 @@ class DLPackPool {
     std::multimap<size_t, DLManagedTensor *> pool;
     DLPackPoolContext *context;
 
+    friend class DLPackPoolContext;
+    void returnPackInternal(DLManagedTensor *);
+
   public:
     DLPackPool();
     ~DLPackPool();

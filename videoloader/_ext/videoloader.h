@@ -43,7 +43,8 @@ class Video {
     size_t numFrames() const noexcept { return packetIndex.size(); }
     AVRational averageFrameRate() noexcept;
 
-    VideoDLPack::ptr getBatch(const std::vector<std::size_t> &frameIndices);
+    VideoDLPack::ptr getBatch(const std::vector<std::size_t> &frameIndices,
+                              DLPackPool *pool = nullptr);
 };
 
 class VideoLoader {
