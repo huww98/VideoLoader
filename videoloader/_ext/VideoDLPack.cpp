@@ -1,11 +1,13 @@
 #include "VideoDLPack.h"
 
+#include <array>
 #include <assert.h>
 
 namespace huww {
 namespace videoloader {
 
-VideoDLPackBuilder::VideoDLPackBuilder(int numFrames) : numFrames(numFrames), dlTensor(nullptr) {}
+VideoDLPackBuilder::VideoDLPackBuilder(int numFrames, DLPackPool *pool)
+    : numFrames(numFrames), dlTensor(nullptr), pool(pool) {}
 
 void VideoDLPackBuilder::copyFromFrame(AVFrame *frame, int index) {
     assert(index < numFrames);
@@ -14,25 +16,17 @@ void VideoDLPackBuilder::copyFromFrame(AVFrame *frame, int index) {
     auto frameSize = linesize * frame->height;
 
     if (!dlTensor) {
-        dlTensor.reset(new DLManagedTensor{
-            .dl_tensor =
-                {
-                    .data = aligned_alloc(64, frameSize * numFrames),
-                    .ctx = {.device_type = kDLCPU},
-                    .ndim = 4, // frame, width, height, channel
-                    .dtype =
-                        {
-                            .code = kDLUInt,
-                            .bits = 8,
-                            .lanes = 1,
-                        },
-                    .shape = new int64_t[4]{numFrames, frame->width, frame->height, 3},
-                    .strides = new int64_t[4]{frameSize, 3, linesize, 1},
-                    .byte_offset = 0,
-                },
-            .manager_ctx = nullptr,
-            .deleter = &VideoDLPack::free,
-        });
+        auto size = frameSize * numFrames;
+        if (this->pool) {
+            dlTensor = this->pool->get(size);
+        } else {
+            dlTensor = VideoDLPack::alloc(size);
+        }
+        std::array<int64_t, 4> shape = {numFrames, frame->width, frame->height, 3};
+        std::array<int64_t, 4> strides = {frameSize, 3, linesize, 1};
+        auto &dl = dlTensor->dl_tensor;
+        std::copy(shape.begin(), shape.end(), dl.shape);
+        std::copy(strides.begin(), strides.end(), dl.strides);
     }
     auto &dl = dlTensor->dl_tensor;
     assert(linesize == dl.strides[2]);
@@ -79,7 +73,7 @@ struct PooledDLPackState {
 };
 
 void freePooledDLPack(DLManagedTensor *dlTensor) {
-    delete static_cast<PooledDLPackState*>(dlTensor->manager_ctx);
+    delete static_cast<PooledDLPackState *>(dlTensor->manager_ctx);
     VideoDLPack::free(dlTensor);
 }
 
@@ -128,8 +122,6 @@ DLPackPool::~DLPackPool() {
         delete context;
     }
 }
-
-
 
 VideoDLPack::ptr DLPackPool::get(size_t size) {
     std::lock_guard lk(context->m);

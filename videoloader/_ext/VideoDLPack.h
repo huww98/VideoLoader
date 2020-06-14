@@ -24,17 +24,6 @@ class VideoDLPack {
     static ptr alloc(size_t size);
 };
 
-class VideoDLPackBuilder {
-    int numFrames;
-    VideoDLPack::ptr dlTensor;
-
-  public:
-    explicit VideoDLPackBuilder(int numFrames);
-    void copyFromFrame(AVFrame *frame, int index);
-
-    VideoDLPack::ptr result() noexcept { return std::move(dlTensor); }
-};
-
 class DLPackPoolContext;
 
 class DLPackPool {
@@ -47,6 +36,18 @@ class DLPackPool {
     DLPackPool(const DLPackPool &) = delete;
     VideoDLPack::ptr get(size_t size);
     void returnPack(VideoDLPack::ptr &&pack);
+};
+
+class VideoDLPackBuilder {
+    int numFrames;
+    VideoDLPack::ptr dlTensor;
+    DLPackPool *pool;
+
+  public:
+    explicit VideoDLPackBuilder(int numFrames, DLPackPool *pool = nullptr);
+    void copyFromFrame(AVFrame *frame, int index);
+
+    VideoDLPack::ptr result() noexcept { return std::move(dlTensor); }
 };
 
 } // namespace videoloader
