@@ -16,13 +16,11 @@ namespace huww {
 namespace videoloader {
 
 Video VideoLoader::addVideoFile(std::string url) { return Video(url); }
-using AVCodecContextPtr =
-    std::unique_ptr<AVCodecContext, void (*)(AVCodecContext *)>;
+using AVCodecContextPtr = std::unique_ptr<AVCodecContext, void (*)(AVCodecContext *)>;
 
 auto new_AVCodecContext(const AVCodec *codec) {
-    return AVCodecContextPtr(
-        CHECK_AV(avcodec_alloc_context3(codec), "alloc AVCodecContext failed"),
-        [](AVCodecContext *c) { avcodec_free_context(&c); });
+    return AVCodecContextPtr(CHECK_AV(avcodec_alloc_context3(codec), "alloc AVCodecContext failed"),
+                             [](AVCodecContext *c) { avcodec_free_context(&c); });
 }
 
 using AVPacketPtr = std::unique_ptr<AVPacket, void (*)(AVPacket *)>;
@@ -34,12 +32,11 @@ auto allocAVPacket() {
 
 Video::Video(std::string url) : format(url) {
     auto fmt_ctx = format.formatContext();
-    CHECK_AV(avformat_find_stream_info(fmt_ctx, nullptr),
-             "find stream info failed");
+    CHECK_AV(avformat_find_stream_info(fmt_ctx, nullptr), "find stream info failed");
 
-    streamIndex = CHECK_AV(av_find_best_stream(fmt_ctx, AVMEDIA_TYPE_VIDEO, -1,
-                                               -1, &this->decoder, 0),
-                           "Unable to find video stream for \"" << url << "\"");
+    streamIndex =
+        CHECK_AV(av_find_best_stream(fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, &this->decoder, 0),
+                 "Unable to find video stream for \"" << url << "\"");
 
     auto packet = allocAVPacket();
 
@@ -64,8 +61,7 @@ Video::Video(std::string url) : format(url) {
         });
         av_packet_unref(packet.get());
     }
-    CHECK_AV(av_seek_frame(fmt_ctx, streamIndex, 0, AVSEEK_FLAG_BACKWARD),
-             "failed to seek back");
+    CHECK_AV(av_seek_frame(fmt_ctx, streamIndex, 0, AVSEEK_FLAG_BACKWARD), "failed to seek back");
     std::sort(packetIndex.begin(), packetIndex.end(),
               [](auto &a, auto &b) { return a.pts < b.pts; });
     {
@@ -103,24 +99,22 @@ class VideoPacketScheduler {
         if (currentSchedule == schedule.end()) {
             return;
         }
-        CHECK_AV(av_seek_frame(fmt_ctx, streamIndex,
-                               currentSchedule->second.keyFramePts,
+        CHECK_AV(av_seek_frame(fmt_ctx, streamIndex, currentSchedule->second.keyFramePts,
                                AVSEEK_FLAG_BACKWARD),
                  "failed to seek");
     }
 
   public:
     VideoPacketScheduler(const std::vector<size_t> &frameIndicesRequested,
-                         const std::vector<PacketIndexEntry> &index,
-                         AVFormatContext *fmt_ctx, int streamIndex)
+                         const std::vector<PacketIndexEntry> &index, AVFormatContext *fmt_ctx,
+                         int streamIndex)
         : fmt_ctx(fmt_ctx), streamIndex(streamIndex), packet(allocAVPacket()) {
         for (size_t f : frameIndicesRequested) {
             auto &pktIndex = index[f];
             auto &entry = schedule[pktIndex.keyFrameIndex];
             entry.keyFramePts = index[pktIndex.keyFrameIndex].pts;
             entry.neededPts.insert(pktIndex.pts);
-            entry.lastPacketIndex =
-                std::max(entry.lastPacketIndex, pktIndex.packetIndex);
+            entry.lastPacketIndex = std::max(entry.lastPacketIndex, pktIndex.packetIndex);
         }
         if (!schedule.empty()) {
             // Merge adjecent schedule.
@@ -188,7 +182,7 @@ struct FrameRequest {
     int64_t pts;
 };
 
-VideoDLPack Video::getBatch(const std::vector<size_t> &frameIndices) {
+VideoDLPack::ptr Video::getBatch(const std::vector<size_t> &frameIndices) {
     this->weakUp();
 
     std::vector<FrameRequest> request(frameIndices.size());
@@ -207,19 +201,16 @@ VideoDLPack Video::getBatch(const std::vector<size_t> &frameIndices) {
 
     auto fmt_ctx = format.formatContext();
 
-    VideoPacketScheduler packetScheduler(frameIndices, packetIndex, fmt_ctx,
-                                         this->streamIndex);
+    VideoPacketScheduler packetScheduler(frameIndices, packetIndex, fmt_ctx, this->streamIndex);
 
     auto decodeContext = new_AVCodecContext(decoder);
 
-    CHECK_AV(avcodec_parameters_to_context(decodeContext.get(),
-                                           currentStream().codecpar),
+    CHECK_AV(avcodec_parameters_to_context(decodeContext.get(), currentStream().codecpar),
              "failed to set codec parameters");
-    CHECK_AV(avcodec_open2(decodeContext.get(), decoder, nullptr),
-             "open decoder failed");
+    CHECK_AV(avcodec_open2(decodeContext.get(), decoder, nullptr), "open decoder failed");
 
     AVFilterGraph fg(*decodeContext.get(), currentStream().time_base);
-    VideoDLPack pack(request.size());
+    VideoDLPackBuilder packBuilder(request.size());
     auto nextRequest = request.cbegin();
 
     auto frame = allocAVFrame();
@@ -250,12 +241,10 @@ VideoDLPack Video::getBatch(const std::vector<size_t> &frameIndices) {
                 auto filteredFrame = fg.processFrame(frame.get());
                 SPDLOG_TRACE("Filtered frame PTS {}", filteredFrame->pts);
                 do {
-                    pack.copyFromFrame(filteredFrame,
-                                       nextRequest->requestIndex);
+                    packBuilder.copyFromFrame(filteredFrame, nextRequest->requestIndex);
                     SPDLOG_TRACE("Copied to index {}", nextRequest->requestIndex);
                     nextRequest++;
-                } while (nextRequest != request.cend() &&
-                         filteredFrame->pts == nextRequest->pts);
+                } while (nextRequest != request.cend() && filteredFrame->pts == nextRequest->pts);
                 av_frame_unref(filteredFrame);
                 if (nextRequest == request.cend()) {
                     eof = true;
@@ -265,7 +254,7 @@ VideoDLPack Video::getBatch(const std::vector<size_t> &frameIndices) {
         }
     }
     assert(nextRequest == request.cend());
-    return pack;
+    return packBuilder.result();
 }
 
 void Video::sleep() { this->format.sleep(); }
@@ -278,9 +267,7 @@ AVStream &Video::currentStream() noexcept {
     return *this->format.formatContext()->streams[this->streamIndex];
 }
 
-AVRational Video::averageFrameRate() noexcept {
-    return this->currentStream().avg_frame_rate;
-}
+AVRational Video::averageFrameRate() noexcept { return this->currentStream().avg_frame_rate; }
 
 void init() {
 #if (LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(58, 9, 100))

@@ -130,7 +130,7 @@ class VideoDatasetLoader {
      *
      * Will block until at least one batch of data avaliable. Can only used in one thread.
      */
-    std::vector<VideoDLPack> getNextBatch();
+    std::vector<VideoDLPack::ptr> getNextBatch();
 
     /** Not implemented yet */
     VideoBatchDLPack getNextScaledBatch();

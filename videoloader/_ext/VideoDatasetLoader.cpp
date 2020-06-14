@@ -65,7 +65,7 @@ auto SpeedEstimator::speed() -> duration_t {
 }
 
 class BatchOutputBuffer {
-    std::vector<std::optional<VideoDLPack>> buffer;
+    std::vector<VideoDLPack::ptr> buffer;
     std::atomic<size_t> numFilled = 0;
     std::condition_variable fullCV;
     std::mutex fullCV_m;
@@ -80,8 +80,8 @@ class BatchOutputBuffer {
         std::unique_lock lk(fullCV_m);
         fullCV.wait(lk, [this] { return this->full(); });
     }
-    void add(int index, VideoDLPack &&data) {
-        assert(!buffer[index].has_value());
+    void add(int index, VideoDLPack::ptr &&data) {
+        assert(!buffer[index]);
         buffer[index] = std::move(data);
         auto previousFilled = numFilled.fetch_add(1, std::memory_order_release);
         if (previousFilled + 1 == buffer.size()) {
@@ -91,14 +91,8 @@ class BatchOutputBuffer {
             fullCV.notify_all();
         }
     }
-    std::vector<VideoDLPack> transferData() {
-        std::vector<VideoDLPack> data;
-        data.reserve(this->buffer.size());
-        for (auto &&b : this->buffer) {
-            data.push_back(std::move(b.value()));
-        }
-        this->buffer.clear();
-        return data;
+    std::vector<VideoDLPack::ptr> transferData() {
+        return std::move(this->buffer);
     }
     auto size() const noexcept { return this->buffer.size(); }
 };
@@ -276,7 +270,7 @@ void VideoDatasetLoader::loadWorker(int workerIndex) {
     }
 }
 
-std::vector<VideoDLPack> VideoDatasetLoader::getNextBatch() {
+std::vector<VideoDLPack::ptr> VideoDatasetLoader::getNextBatch() {
     auto batchIndex = this->nextBatchIndex++;
     if (batchIndex >= this->outputBuffer.size()) {
         throw NoMoreBatch();
