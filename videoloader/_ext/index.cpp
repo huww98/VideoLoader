@@ -169,13 +169,13 @@ static PyObject *PyVideo_getBatch(PyVideo *self, PyObject *args) {
     }
 
     try {
-        std::optional<videoloader::VideoDLPack> dlPack;
+        videoloader::VideoDLPack::ptr dlPack;
         {
             ReleaseGILGuard no_GIL;
             dlPack = self->video.getBatch(indices);
         }
         return PyCapsule_New(
-            dlPack->release(), dlTensorCapsuleName, [](PyObject *cap) {
+            dlPack.release(), dlTensorCapsuleName, [](PyObject *cap) {
                 if (strcmp(PyCapsule_GetName(cap), dlTensorCapsuleName) != 0) {
                     return; // used.
                 }

@@ -40,10 +40,11 @@ class Video {
     void weakUp();
     bool isSleeping();
 
-    size_t numFrames() noexcept { return packetIndex.size(); }
+    size_t numFrames() const noexcept { return packetIndex.size(); }
     AVRational averageFrameRate() noexcept;
 
-    VideoDLPack getBatch(const std::vector<std::size_t> &frameIndices);
+    VideoDLPack::ptr getBatch(const std::vector<std::size_t> &frameIndices,
+                              DLPackPool *pool = nullptr);
 };
 
 class VideoLoader {
