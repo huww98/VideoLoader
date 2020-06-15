@@ -17,39 +17,39 @@ namespace videoloader {
 
 void init();
 
-struct PacketIndexEntry {
+struct packet_index_entry {
     int64_t pts;
-    int keyFrameIndex;
-    int packetIndex;
+    int key_frame_index;
+    int packet_index;
 };
 
-class Video {
+class video {
   private:
-    AVFormat format;
+    avformat format;
     AVCodec *decoder = nullptr;
-    int streamIndex = -1;
+    int stream_index = -1;
     /** Sorted by pts */
-    std::vector<PacketIndexEntry> packetIndex;
+    std::vector<packet_index_entry> packet_index;
 
-    AVStream &currentStream() noexcept;
+    AVStream &current_stream() noexcept;
 
   public:
-    explicit Video(std::string url);
+    explicit video(std::string url);
 
     void sleep();
-    void weakUp();
-    bool isSleeping();
+    void wake_up();
+    bool is_sleeping();
 
-    size_t numFrames() const noexcept { return packetIndex.size(); }
-    AVRational averageFrameRate() noexcept;
+    size_t num_frames() const noexcept { return packet_index.size(); }
+    AVRational average_frame_rate() noexcept;
 
-    VideoDLPack::ptr getBatch(const std::vector<std::size_t> &frameIndices,
-                              DLPackPool *pool = nullptr);
+    video_dlpack::ptr get_batch(const std::vector<std::size_t> &frame_indices,
+                              dlpack_pool *pool = nullptr);
 };
 
-class VideoLoader {
+class video_loader {
   public:
-    Video addVideoFile(std::string url);
+    video add_video_file(std::string url);
 };
 
 } // namespace videoloader

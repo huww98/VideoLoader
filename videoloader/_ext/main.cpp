@@ -10,11 +10,11 @@
 using namespace huww::videoloader;
 using namespace std;
 
-constexpr int numThreads = 2;
-constexpr int batchSize = 32;
+constexpr int num_threads = 2;
+constexpr int batch_size = 32;
 
-vector<size_t> frames(const Video& v) {
-    size_t num = min(v.numFrames(), (size_t)16);
+vector<size_t> frames(const video& v) {
+    size_t num = min(v.num_frames(), (size_t)16);
     vector<size_t> frames;
     for (size_t i = 0; i < num; i++) {
         frames.push_back(i);
@@ -28,16 +28,16 @@ int main(int argc, char const *argv[]) {
 
     // std::filesystem::path base = "/mnt/d/Downloads/answering_questions";
     std::filesystem::path base = "/tmp/answering_questions";
-    VideoLoader loader;
-    vector<Video> videos;
+    video_loader loader;
+    vector<video> videos;
     for (auto &f : std::filesystem::recursive_directory_iterator(base)) {
         if (f.path().extension() != ".mp4") {
             continue;
         }
         // cout << f.path() << endl;
-        auto video = loader.addVideoFile(f.path());
+        auto video = loader.add_video_file(f.path());
         video.sleep();
-        // video.getBatch({14, 15});
+        // video.get_batch({14, 15});
         videos.push_back(move(video));
         if (videos.size() % 1000 == 0) {
             spdlog::info("{} videos opened...", videos.size());
@@ -46,27 +46,27 @@ int main(int argc, char const *argv[]) {
 
     spdlog::info("{} videos opened.", videos.size());
 
-    DatasetLoadSchedule sche;
+    dataset_load_schedule sche;
     sche.push_back({});
     for (auto &v : videos) {
-        if (sche.rbegin()->size() == batchSize) {
+        if (sche.rbegin()->size() == batch_size) {
             sche.push_back({});
         }
         sche.rbegin()->push_back({
             .video = v,
-            .frameIndices = frames(v),
+            .frame_indices = frames(v),
         });
     }
 
-    VideoDatasetLoader dsloader(sche);
-    spdlog::info("Start loading using {} threads", numThreads);
+    video_dataset_loader dsloader(sche);
+    spdlog::info("Start loading using {} threads", num_threads);
     auto t1 = chrono::high_resolution_clock::now();
-    dsloader.start(numThreads);
+    dsloader.start(num_threads);
     while (true) {
         try {
-            auto data = dsloader.getNextBatch();
+            auto data = dsloader.get_next_batch();
             spdlog::info("Got a batch of {} clips", data.size());
-        } catch (VideoDatasetLoader::NoMoreBatch &) {
+        } catch (video_dataset_loader::no_more_batch &) {
             break;
         }
     }

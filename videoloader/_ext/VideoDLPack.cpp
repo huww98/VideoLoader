@@ -7,39 +7,39 @@
 namespace huww {
 namespace videoloader {
 
-VideoDLPackBuilder::VideoDLPackBuilder(int numFrames, DLPackPool *pool)
-    : numFrames(numFrames), dlTensor(nullptr), pool(pool) {}
+video_dlpack_builder::video_dlpack_builder(int num_frames, dlpack_pool *pool)
+    : num_frames(num_frames), dlpack(nullptr), pool(pool) {}
 
-void VideoDLPackBuilder::copyFromFrame(AVFrame *frame, int index) {
-    assert(index < numFrames);
+void video_dlpack_builder::copy_from_frame(AVFrame *frame, int index) {
+    assert(index < num_frames);
     assert(frame->format == AVPixelFormat::AV_PIX_FMT_RGB24);
     auto linesize = frame->linesize[0];
-    auto frameSize = linesize * frame->height;
+    auto frame_size = linesize * frame->height;
 
-    if (!dlTensor) {
-        auto size = frameSize * numFrames;
+    if (!dlpack) {
+        auto size = frame_size * num_frames;
         if (this->pool) {
-            dlTensor = this->pool->get(size);
+            dlpack = this->pool->get(size);
         } else {
-            dlTensor = VideoDLPack::alloc(size);
+            dlpack = video_dlpack::alloc(size);
         }
-        std::array<int64_t, 4> shape = {numFrames, frame->width, frame->height, 3};
-        std::array<int64_t, 4> strides = {frameSize, 3, linesize, 1};
-        auto &dl = dlTensor->dl_tensor;
+        std::array<int64_t, 4> shape = {num_frames, frame->width, frame->height, 3};
+        std::array<int64_t, 4> strides = {frame_size, 3, linesize, 1};
+        auto &dl = dlpack->dl_tensor;
         std::copy(shape.begin(), shape.end(), dl.shape);
         std::copy(strides.begin(), strides.end(), dl.strides);
     }
-    auto &dl = dlTensor->dl_tensor;
+    auto &dl = dlpack->dl_tensor;
     assert(linesize == dl.strides[2]);
     assert(frame->width == dl.shape[1]);
     assert(frame->height == dl.shape[2]);
 
-    auto dest = static_cast<uint8_t *>(dl.data) + frameSize * index;
-    memcpy(dest, frame->data[0], frameSize);
+    auto dest = static_cast<uint8_t *>(dl.data) + frame_size * index;
+    memcpy(dest, frame->data[0], frame_size);
 }
 
-auto VideoDLPack::alloc(size_t size) -> VideoDLPack::ptr {
-    return VideoDLPack::ptr(new DLManagedTensor{
+auto video_dlpack::alloc(size_t size) -> video_dlpack::ptr {
+    return video_dlpack::ptr(new DLManagedTensor{
         .dl_tensor =
             {
                 .data = aligned_alloc(64, size),
@@ -56,112 +56,112 @@ auto VideoDLPack::alloc(size_t size) -> VideoDLPack::ptr {
                 .byte_offset = 0,
             },
         .manager_ctx = nullptr,
-        .deleter = &VideoDLPack::free,
+        .deleter = &video_dlpack::free,
     });
 }
 
-void VideoDLPack::free(DLManagedTensor *dlTensor) {
-    auto &dl = dlTensor->dl_tensor;
+void video_dlpack::free(DLManagedTensor *dlpack) {
+    auto &dl = dlpack->dl_tensor;
     delete[] dl.shape;
     delete[] dl.strides;
     ::free(dl.data);
-    delete dlTensor;
+    delete dlpack;
 }
 
-struct PooledDLPackState {
+struct pooled_dlpack_state {
     size_t size;
-    DLPackPoolContext &poolContext;
+    dlpack_pool_context &pool_context;
 };
 
-void freePooledDLPack(DLManagedTensor *dlTensor) {
-    delete static_cast<PooledDLPackState *>(dlTensor->manager_ctx);
-    VideoDLPack::free(dlTensor);
+void free_pooled_dlpack(DLManagedTensor *dlpack) {
+    delete static_cast<pooled_dlpack_state *>(dlpack->manager_ctx);
+    video_dlpack::free(dlpack);
 }
 
-class DLPackPoolContext {
+class dlpack_pool_context {
     std::mutex m;
-    long handedOutPack = 0;
-    bool poolAlive = true;
-    DLPackPool *pool;
+    long num_handed_out_pack = 0;
+    bool pool_alive = true;
+    dlpack_pool *pool;
 
-    friend class DLPackPool;
+    friend class dlpack_pool;
 
   public:
-    DLPackPoolContext(DLPackPool *pool) : pool(pool) {}
-    void returnPack(DLManagedTensor *dlTensor) {
-        bool deleteContext;
+    dlpack_pool_context(dlpack_pool *pool) : pool(pool) {}
+    void return_pack(DLManagedTensor *dlpack) {
+        bool delete_context;
         {
             std::lock_guard lk(m);
-            handedOutPack--;
-            assert(handedOutPack >= 0);
-            if (poolAlive) {
-                pool->returnPackInternal(dlTensor);
+            num_handed_out_pack--;
+            assert(num_handed_out_pack >= 0);
+            if (pool_alive) {
+                pool->return_pack_internal(dlpack);
             } else {
                 SPDLOG_TRACE("Pool disposed, freeing DLTensor.");
-                freePooledDLPack(dlTensor);
+                free_pooled_dlpack(dlpack);
             }
-            deleteContext = handedOutPack == 0 && !poolAlive;
+            delete_context = num_handed_out_pack == 0 && !pool_alive;
         }
-        if (deleteContext) {
+        if (delete_context) {
             delete this;
         }
     }
-    DLPackPoolContext(const DLPackPoolContext &) = delete;
-    DLPackPoolContext(DLPackPoolContext &&) = delete;
+    dlpack_pool_context(const dlpack_pool_context &) = delete;
+    dlpack_pool_context(dlpack_pool_context &&) = delete;
 };
 
-DLPackPool::DLPackPool() : context(new DLPackPoolContext(this)) {}
-DLPackPool::~DLPackPool() {
-    bool deleteContext;
+dlpack_pool::dlpack_pool() : context(new dlpack_pool_context(this)) {}
+dlpack_pool::~dlpack_pool() {
+    bool delete_context;
     {
         std::lock_guard lk(context->m);
-        context->poolAlive = false;
+        context->pool_alive = false;
         context->pool = nullptr;
-        for (auto &[_, dlTensor] : this->pool) {
-            freePooledDLPack(dlTensor);
+        for (auto &[_, dlpack] : this->pool) {
+            free_pooled_dlpack(dlpack);
         }
-        deleteContext = context->handedOutPack == 0;
+        delete_context = context->num_handed_out_pack == 0;
     }
-    if (deleteContext) {
+    if (delete_context) {
         delete context;
     }
 }
 
-VideoDLPack::ptr DLPackPool::get(size_t size) {
+video_dlpack::ptr dlpack_pool::get(size_t size) {
     std::lock_guard lk(context->m);
-    context->handedOutPack++;
+    context->num_handed_out_pack++;
     auto it = pool.lower_bound(size);
     if (it != pool.end() && it->first < size * 2) {
         SPDLOG_TRACE("Reusing DLTensor of size {} for request of size {}", it->first, size);
-        auto reusedTensor = it->second;
+        auto reused_tensor = it->second;
         pool.erase(it);
-        return VideoDLPack::ptr(reusedTensor);
+        return video_dlpack::ptr(reused_tensor);
     }
     SPDLOG_TRACE("Allocating new DLTensor of size {}", size);
-    auto newTensor = VideoDLPack::alloc(size);
-    newTensor->manager_ctx = new PooledDLPackState{
+    auto new_tensor = video_dlpack::alloc(size);
+    new_tensor->manager_ctx = new pooled_dlpack_state{
         .size = size,
-        .poolContext = *this->context,
+        .pool_context = *this->context,
     };
-    newTensor->deleter = [](DLManagedTensor *dlTensor) {
-        auto ctx = static_cast<PooledDLPackState *>(dlTensor->manager_ctx);
-        ctx->poolContext.returnPack(dlTensor);
+    new_tensor->deleter = [](DLManagedTensor *dlpack) {
+        auto ctx = static_cast<pooled_dlpack_state *>(dlpack->manager_ctx);
+        ctx->pool_context.return_pack(dlpack);
     };
-    return newTensor;
+    return new_tensor;
 }
 
-void DLPackPool::returnPackInternal(DLManagedTensor *dlTensor) {
-    auto ctx = static_cast<PooledDLPackState *>(dlTensor->manager_ctx);
-    assert(&ctx->poolContext == context);
+void dlpack_pool::return_pack_internal(DLManagedTensor *dlpack) {
+    auto ctx = static_cast<pooled_dlpack_state *>(dlpack->manager_ctx);
+    assert(&ctx->pool_context == context);
 
     auto it = pool.lower_bound(ctx->size);
-    pool.insert(it, {ctx->size, dlTensor});
+    pool.insert(it, {ctx->size, dlpack});
     SPDLOG_TRACE("Returned DLTensor of size {}", ctx->size);
 }
 
-void DLPackPool::returnPack(VideoDLPack::ptr &&pack) {
+void dlpack_pool::return_pack(video_dlpack::ptr &&pack) {
     std::lock_guard lk(context->m);
-    this->returnPackInternal(pack.release());
+    this->return_pack_internal(pack.release());
 }
 
 } // namespace videoloader

@@ -11,28 +11,28 @@ extern "C" {
 namespace huww {
 namespace videoloader {
 
-using AVIOContextPtr = std::unique_ptr<AVIOContext, void (*)(AVIOContext *c)>;
+using avio_context_ptr = std::unique_ptr<AVIOContext, void (*)(AVIOContext *c)>;
 constexpr int IO_BUFFER_SIZE = 32768;
 
-class FileIO {
+class file_io {
   private:
-    std::string filePath;
+    std::string file_path;
     std::ifstream fstream;
-    std::streampos lastPos;
+    std::streampos last_pos;
 
-    void openIO();
+    void open_io();
 
   public:
-    FileIO(std::string filePath);
+    file_io(std::string file_path);
 
-    bool isSleeping();
+    bool is_sleeping();
     void sleep();
-    void weakUp();
+    void wake_up();
 
     int read(uint8_t *buf, int size);
     int64_t seek(int64_t pos, int whence);
 
-    static AVIOContextPtr newAVIOContext(std::string filePath);
+    static avio_context_ptr new_avio_context(std::string file_path);
 };
 
 } // namespace videoloader

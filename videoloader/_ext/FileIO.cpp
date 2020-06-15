@@ -5,36 +5,36 @@
 namespace huww {
 namespace videoloader {
 
-void FileIO::openIO() {
-    fstream.open(filePath, std::fstream::in | std::fstream::binary);
+void file_io::open_io() {
+    fstream.open(file_path, std::fstream::in | std::fstream::binary);
     if (!fstream) {
         std::ostringstream msg;
-        msg << "Unable to open file \"" << filePath << "\"";
+        msg << "Unable to open file \"" << file_path << "\"";
         throw std::system_error(errno, std::system_category(), msg.str());
     }
 }
 
-FileIO::FileIO(std::string filePath) : filePath(filePath), lastPos(0) {
-    this->openIO();
+file_io::file_io(std::string file_path) : file_path(file_path), last_pos(0) {
+    this->open_io();
 }
 
-bool FileIO::isSleeping() { return !fstream.is_open(); }
+bool file_io::is_sleeping() { return !fstream.is_open(); }
 
-void FileIO::sleep() {
-    if (!isSleeping()) {
-        lastPos = fstream.tellg();
+void file_io::sleep() {
+    if (!is_sleeping()) {
+        last_pos = fstream.tellg();
         fstream.close();
     }
 }
 
-void FileIO::weakUp() {
-    if (isSleeping()) {
-        this->openIO();
-        fstream.seekg(lastPos, std::fstream::beg);
+void file_io::wake_up() {
+    if (is_sleeping()) {
+        this->open_io();
+        fstream.seekg(last_pos, std::fstream::beg);
     }
 }
 
-int FileIO::read(uint8_t *buf, int size) {
+int file_io::read(uint8_t *buf, int size) {
     fstream.read((char *)buf, size);
     if (fstream.eof()) {
         fstream.clear();
@@ -48,7 +48,7 @@ int FileIO::read(uint8_t *buf, int size) {
     return fstream.gcount();
 }
 
-int64_t FileIO::seek(int64_t pos, int whence) {
+int64_t file_io::seek(int64_t pos, int whence) {
     std::fstream::seekdir dir;
     switch (whence) {
     case SEEK_SET:
@@ -70,22 +70,22 @@ int64_t FileIO::seek(int64_t pos, int whence) {
     return fstream.tellg();
 }
 
-AVIOContextPtr FileIO::newAVIOContext(std::string filePath) {
+avio_context_ptr file_io::new_avio_context(std::string file_path) {
     uint8_t *buffer = (uint8_t *)av_malloc(IO_BUFFER_SIZE);
-    auto io = new FileIO(filePath);
-    return AVIOContextPtr(
+    auto io = new file_io(file_path);
+    return avio_context_ptr(
         avio_alloc_context(
             buffer, IO_BUFFER_SIZE, 0, io,
             [](void *opaque, uint8_t *buf, int buf_size) {
-                return static_cast<FileIO *>(opaque)->read(buf, buf_size);
+                return static_cast<file_io *>(opaque)->read(buf, buf_size);
             },
             nullptr,
             [](void *opaque, int64_t offset, int whence) {
-                return static_cast<FileIO *>(opaque)->seek(offset, whence);
+                return static_cast<file_io *>(opaque)->seek(offset, whence);
             }),
         [](AVIOContext *c) {
             av_freep(&c->buffer);
-            delete static_cast<FileIO *>(c->opaque);
+            delete static_cast<file_io *>(c->opaque);
             avio_context_free(&c);
         });
 }

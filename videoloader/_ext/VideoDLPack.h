@@ -13,44 +13,44 @@ extern "C" {
 namespace huww {
 namespace videoloader {
 
-struct DLPackDeleter {
-    void operator()(DLManagedTensor *dlTensor) { dlTensor->deleter(dlTensor); }
+struct dlpack_deleter {
+    void operator()(DLManagedTensor *dlpack) { dlpack->deleter(dlpack); }
 };
 
-class VideoDLPack {
+class video_dlpack {
   public:
     static void free(DLManagedTensor *);
-    using ptr = std::unique_ptr<DLManagedTensor, DLPackDeleter>;
+    using ptr = std::unique_ptr<DLManagedTensor, dlpack_deleter>;
     static ptr alloc(size_t size);
 };
 
-class DLPackPoolContext;
+class dlpack_pool_context;
 
-class DLPackPool {
+class dlpack_pool {
     std::multimap<size_t, DLManagedTensor *> pool;
-    DLPackPoolContext *context;
+    dlpack_pool_context *context;
 
-    friend class DLPackPoolContext;
-    void returnPackInternal(DLManagedTensor *);
+    friend class dlpack_pool_context;
+    void return_pack_internal(DLManagedTensor *);
 
   public:
-    DLPackPool();
-    ~DLPackPool();
-    DLPackPool(const DLPackPool &) = delete;
-    VideoDLPack::ptr get(size_t size);
-    void returnPack(VideoDLPack::ptr &&pack);
+    dlpack_pool();
+    ~dlpack_pool();
+    dlpack_pool(const dlpack_pool &) = delete;
+    video_dlpack::ptr get(size_t size);
+    void return_pack(video_dlpack::ptr &&pack);
 };
 
-class VideoDLPackBuilder {
-    int numFrames;
-    VideoDLPack::ptr dlTensor;
-    DLPackPool *pool;
+class video_dlpack_builder {
+    int num_frames;
+    video_dlpack::ptr dlpack;
+    dlpack_pool *pool;
 
   public:
-    explicit VideoDLPackBuilder(int numFrames, DLPackPool *pool = nullptr);
-    void copyFromFrame(AVFrame *frame, int index);
+    explicit video_dlpack_builder(int num_frames, dlpack_pool *pool = nullptr);
+    void copy_from_frame(AVFrame *frame, int index);
 
-    VideoDLPack::ptr result() noexcept { return std::move(dlTensor); }
+    video_dlpack::ptr result() noexcept { return std::move(dlpack); }
 };
 
 } // namespace videoloader

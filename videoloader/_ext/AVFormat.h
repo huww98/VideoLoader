@@ -8,26 +8,26 @@ extern "C" {
 namespace huww {
 namespace videoloader {
 
-class AVFormat {
+class avformat {
   private:
-    AVIOContextPtr ioContext;
+    avio_context_ptr io_context;
     AVFormatContext *fmt_ctx = nullptr;
     void dispose();
 
   public:
-    explicit AVFormat(std::string url);
-    AVFormat(AVFormat &&other) noexcept : ioContext(nullptr, nullptr) {
+    explicit avformat(std::string url);
+    avformat(avformat &&other) noexcept : io_context(nullptr, nullptr) {
         *this = std::move(other);
     }
-    AVFormat &operator=(AVFormat &&other) noexcept;
-    AVFormat(const AVFormat &) = delete;
-    AVFormat &operator=(const AVFormat &) = delete;
-    ~AVFormat() { this->dispose(); }
+    avformat &operator=(avformat &&other) noexcept;
+    avformat(const avformat &) = delete;
+    avformat &operator=(const avformat &) = delete;
+    ~avformat() { this->dispose(); }
 
     void sleep();
-    void weakUp();
-    bool isSleeping();
-    AVFormatContext *formatContext() { return this->fmt_ctx; }
+    void wake_up();
+    bool is_sleeping();
+    AVFormatContext *format_context() { return this->fmt_ctx; }
 };
 
 } // namespace videoloader

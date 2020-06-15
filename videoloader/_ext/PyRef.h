@@ -5,37 +5,37 @@
 
 namespace huww {
 
-class PyRef {
+class pyref {
   protected:
     PyObject *ptr;
 public:
-    PyRef(): ptr(nullptr) {}
-    PyRef(PyObject *ref): ptr(ref) {}
+    pyref(): ptr(nullptr) {}
+    pyref(PyObject *ref): ptr(ref) {}
     PyObject *get() const { return this->ptr; }
     explicit operator bool() const { return this->ptr != nullptr; }
 };
 
-class OwnedPyRef;
-class BorrowedPyRef: public PyRef {
+class owned_pyref;
+class borrowed_pyref: public pyref {
   public:
-    BorrowedPyRef(PyObject *ref) : PyRef(ref) {}
-    BorrowedPyRef(const OwnedPyRef &ref);
-    OwnedPyRef own();
+    borrowed_pyref(PyObject *ref) : pyref(ref) {}
+    borrowed_pyref(const owned_pyref &ref);
+    owned_pyref own();
 };
 
-class OwnedPyRef: public PyRef {
+class owned_pyref: public pyref {
   public:
-    OwnedPyRef() {}
-    OwnedPyRef(PyObject *ref) : PyRef(ref) {}
-    OwnedPyRef(BorrowedPyRef &ref);
+    owned_pyref() {}
+    owned_pyref(PyObject *ref) : pyref(ref) {}
+    owned_pyref(borrowed_pyref &ref);
 
-    OwnedPyRef &operator=(OwnedPyRef &&ref) noexcept;
-    OwnedPyRef(OwnedPyRef &&ref) noexcept;
-    OwnedPyRef &operator=(const OwnedPyRef &ref);
-    OwnedPyRef(const OwnedPyRef &ref);
+    owned_pyref &operator=(owned_pyref &&ref) noexcept;
+    owned_pyref(owned_pyref &&ref) noexcept;
+    owned_pyref &operator=(const owned_pyref &ref);
+    owned_pyref(const owned_pyref &ref);
 
-    ~OwnedPyRef();
-    BorrowedPyRef borrow() const { return BorrowedPyRef(*this); }
+    ~owned_pyref();
+    borrowed_pyref borrow() const { return borrowed_pyref(*this); }
     PyObject *transfer();
 };
 

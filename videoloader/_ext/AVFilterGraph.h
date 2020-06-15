@@ -11,21 +11,23 @@ extern "C" {
 
 namespace huww {
 namespace videoloader {
-namespace {
-using FFGraphPtr =
-    std::unique_ptr<::AVFilterGraph, void (*)(::AVFilterGraph *)>;
-}
 
-class AVFilterGraph {
+struct avfilter_graph_deleter {
+    void operator()(::AVFilterGraph *i) { avfilter_graph_free(&i); }
+};
+
+using ffavgraph_ptr = std::unique_ptr<::AVFilterGraph, avfilter_graph_deleter>;
+
+class avfilter_graph {
   private:
-    FFGraphPtr graph;
+    ffavgraph_ptr graph;
     AVFilterContext *buffersrc_ctx;
     AVFilterContext *buffersink_ctx;
-    AVFramePtr filteredFrame;
+    avframe_ptr filtered_frame;
 
   public:
-    AVFilterGraph(AVCodecContext &decodeContext, AVRational timeBase);
-    AVFrame *processFrame(AVFrame *src);
+    avfilter_graph(AVCodecContext &decode_context, AVRational time_base);
+    AVFrame *process_frame(AVFrame *src);
 };
 
 } // namespace videoloader

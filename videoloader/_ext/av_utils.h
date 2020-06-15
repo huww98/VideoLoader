@@ -13,34 +13,37 @@ extern "C" {
 namespace huww {
 namespace videoloader {
 
-class AvError : public std::runtime_error {
+class av_error : public std::runtime_error {
   private:
     int _code;
 
   public:
-    AvError(int errorCode, std::string message);
+    av_error(int error_code, std::string message);
     int code() const noexcept { return this->_code; }
 };
 
-inline int check_av(int retCode) { return retCode; }
+inline int check_av(int ret_code) { return ret_code; }
 inline int check_av(void *ptr) { return ptr == nullptr ? AVERROR(ENOMEM) : 0; }
-#define CHECK_AV(call, msg)                                                    \
-    [&] {                                                                      \
-        auto __ret = (call);                                                   \
-        int errCode = check_av(__ret);                                         \
-        if (errCode < 0) {                                                     \
-            std::ostringstream msgStream;                                      \
-            msgStream << "at:" << __FILE__ << ':' << __LINE__ << '\n' << msg;  \
-            throw AvError(errCode, msgStream.str());                           \
-        }                                                                      \
-        return __ret;                                                          \
+#define CHECK_AV(call, msg)                                                                        \
+    [&] {                                                                                          \
+        auto __ret = (call);                                                                       \
+        int __err_code = check_av(__ret);                                                          \
+        if (__err_code < 0) {                                                                      \
+            std::ostringstream __msg_stream;                                                       \
+            __msg_stream << "at:" << __FILE__ << ':' << __LINE__ << '\n' << msg;                   \
+            throw av_error(__err_code, __msg_stream.str());                                        \
+        }                                                                                          \
+        return __ret;                                                                              \
     }()
 
-using AVFramePtr = std::unique_ptr<AVFrame, void (*)(AVFrame *)>;
+struct avframe_deleter {
+    void operator()(AVFrame *f) { av_frame_free(&f); }
+};
 
-inline auto allocAVFrame() {
-    return AVFramePtr(CHECK_AV(av_frame_alloc(), "alloc AVFrame failed"),
-                      [](AVFrame *f) { av_frame_free(&f); });
+using avframe_ptr = std::unique_ptr<AVFrame, avframe_deleter>;
+
+inline auto new_avframe() {
+    return avframe_ptr(CHECK_AV(av_frame_alloc(), "alloc AVFrame failed"));
 }
 
 } // namespace videoloader
