@@ -16,15 +16,15 @@ add_compile_options(-Wall)
 set(VIDEO_LOADER_SRCS
     videoloader.cpp
     av_utils.cpp
-    AVFormat.cpp
-    FileIO.cpp
-    AVFilterGraph.cpp
-    VideoDLPack.cpp
-    VideoDatasetLoader.cpp)
+    avformat.cpp
+    file_io.cpp
+    avfilter_graph.cpp
+    video_dlpack.cpp
+    video_dataset_loader.cpp)
 if(videoloader_NAME AND videoloader_DESTINATION)
     list(APPEND VIDEO_LOADER_SRCS
         index.cpp
-        PyRef.cpp)
+        pyref.cpp)
     if (Python_VERSION)
         find_package(Python ${Python_VERSION} EXACT COMPONENTS Development NumPy REQUIRED)
     else()

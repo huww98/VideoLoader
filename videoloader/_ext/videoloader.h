@@ -8,9 +8,9 @@ extern "C" {
 #include <libavcodec/avcodec.h>
 }
 
-#include "AVFilterGraph.h"
-#include "AVFormat.h"
-#include "VideoDLPack.h"
+#include "avfilter_graph.h"
+#include "avformat.h"
+#include "video_dlpack.h"
 
 namespace huww {
 namespace videoloader {

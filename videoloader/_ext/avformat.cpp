@@ -1,4 +1,4 @@
-#include "AVFormat.h"
+#include "avformat.h"
 
 #include "av_utils.h"
 

@@ -1,4 +1,4 @@
-#include "AVFilterGraph.h"
+#include "avfilter_graph.h"
 
 #include <assert.h>
 #include <memory>

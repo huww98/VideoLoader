@@ -2,7 +2,7 @@
 #include <filesystem>
 #include <iostream>
 
-#include "VideoDatasetLoader.h"
+#include "video_dataset_loader.h"
 #include "videoloader.h"
 #include <spdlog/spdlog.h>
 #include <unistd.h>
