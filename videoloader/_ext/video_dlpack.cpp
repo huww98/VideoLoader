@@ -1,4 +1,4 @@
-#include  "video_dlpack.h"
+#include "video_dlpack.h"
 
 #include <array>
 #include <assert.h>
@@ -42,7 +42,7 @@ auto video_dlpack::alloc(size_t size) -> video_dlpack::ptr {
     return video_dlpack::ptr(new DLManagedTensor{
         .dl_tensor =
             {
-                .data = aligned_alloc(64, size),
+                .data = std::aligned_alloc(64, size),
                 .ctx = {.device_type = kDLCPU},
                 .ndim = 4, // frame, width, height, channel
                 .dtype =
@@ -64,7 +64,7 @@ void video_dlpack::free(DLManagedTensor *dlpack) {
     auto &dl = dlpack->dl_tensor;
     delete[] dl.shape;
     delete[] dl.strides;
-    ::free(dl.data);
+    std::free(dl.data);
     delete dlpack;
 }
 

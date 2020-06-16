@@ -8,7 +8,7 @@
 #include <unordered_map>
 
 #include "pyref.h"
-#include "videoloader.h"
+#include "video.h"
 
 using namespace huww;
 
@@ -105,12 +105,39 @@ struct PyVideo {
     videoloader::video video;
 };
 
+static int PyVideo_init(PyVideo *self, PyObject *args, PyObject *kwds) {
+    std::string file_path_str;
+    {
+        static const char *kwlist[] = {"url", nullptr};
+        PyBytesObject *_file_path_obj;
+        if (!PyArg_ParseTupleAndKeywords(args, kwds, "O&", (char **)kwlist, PyUnicode_FSConverter,
+                                         &_file_path_obj)) {
+            return -1;
+        }
+
+        owned_pyref file_path_obj((PyObject *)_file_path_obj);
+        auto file_path = PyBytes_AsString(file_path_obj.get());
+        if (file_path == nullptr)
+            return -1;
+        file_path_str = file_path;
+    }
+
+    try {
+        release_GIL_guard no_GIL;
+        new (&self->video) videoloader::video(file_path_str);
+        return 0;
+    } catch (std::exception &e) {
+        handle_exception(e);
+        return -1;
+    }
+}
+
 static void PyVideo_dealloc(PyVideo *v) {
     v->video.~video();
     Py_TYPE(v)->tp_free((PyObject *)v);
 }
 
-static PyObject *PyVideo_sleep(PyVideo *self, PyObject *args) {
+static PyObject *PyVideo_Sleep(PyVideo *self, PyObject *args) {
     try {
         self->video.sleep();
     } catch (std::exception &e) {
@@ -187,7 +214,7 @@ static PyObject *PyVideo_GetBatch(PyVideo *self, PyObject *args) {
 }
 
 static PyMethodDef Video_methods[] = {
-    {"sleep", (PyCFunction)PyVideo_sleep, METH_NOARGS, nullptr},
+    {"sleep", (PyCFunction)PyVideo_Sleep, METH_NOARGS, nullptr},
     {"is_sleeping", (PyCFunction)PyVideo_IsSleeping, METH_NOARGS, nullptr},
     {"get_batch", (PyCFunction)PyVideo_GetBatch, METH_O, nullptr},
     {"num_frames", (PyCFunction)PyVideo_NumFrames, METH_NOARGS, nullptr},
@@ -204,102 +231,11 @@ static PyTypeObject PyVideoType = {
     .tp_dealloc = (destructor)PyVideo_dealloc,
     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
     .tp_methods = Video_methods,
-};
-
-struct PyVideoLoader {
-    PyObject_HEAD;
-    videoloader::video_loader videoLoader;
-    owned_pyref videoType;
-};
-
-static PyObject *VideoLoader_AddVideoFile(PyVideoLoader *self, PyObject *args) {
-    std::string file_path_str;
-    {
-        PyBytesObject *_file_path_obj;
-        if (!PyArg_ParseTuple(args, "O&", PyUnicode_FSConverter, &_file_path_obj))
-            return nullptr;
-
-        owned_pyref file_path_obj((PyObject *)_file_path_obj);
-        auto file_path = PyBytes_AsString(file_path_obj.get());
-        if (file_path == nullptr)
-            return nullptr;
-        file_path_str = file_path;
-    }
-
-    try {
-        std::optional<videoloader::video> video;
-        {
-            release_GIL_guard no_GIL;
-            video = self->videoLoader.add_video_file(file_path_str);
-        }
-
-        auto videoType = (PyTypeObject *)self->videoType.get();
-        owned_pyref pyVideo = videoType->tp_alloc(videoType, 0);
-        if (pyVideo.get() == nullptr)
-            return nullptr;
-        new (&((PyVideo *)pyVideo.get())->video) videoloader::video(std::move(*video));
-        return pyVideo.transfer();
-    } catch (std::exception &e) {
-        handle_exception(e);
-        return nullptr;
-    }
-}
-
-static PyObject *PyVideoLoader_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
-    owned_pyref self = type->tp_alloc(type, 0);
-    if (!self) {
-        return nullptr;
-    }
-    auto &pyVideoLoader = *(PyVideoLoader *)self.get();
-    new (&pyVideoLoader.videoLoader) videoloader::video_loader();
-    new (&pyVideoLoader.videoType) owned_pyref(borrowed_pyref((PyObject *)&PyVideoType).own());
-    return self.transfer();
-}
-
-static void PyVideoLoader_dealloc(PyVideoLoader *v) {
-    v->videoType.~owned_pyref();
-    Py_TYPE(v)->tp_free((PyObject *)v);
-}
-
-static int PyVideoLoader_init(PyVideoLoader *self, PyObject *args, PyObject *kwds) {
-    static const char *kwlist[] = {"video_type", nullptr};
-    PyObject *_video_type = nullptr;
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|O!", (char **)kwlist, &PyType_Type,
-                                     &_video_type)) {
-        return -1;
-    }
-    if (_video_type != nullptr) {
-        if (!PyType_IsSubtype((PyTypeObject *)_video_type, &PyVideoType)) {
-            PyErr_SetString(PyExc_TypeError, "Expecting a sub-type of videoloader._ext._Video");
-            return -1;
-        }
-        self->videoType = borrowed_pyref(_video_type).own();
-    }
-    return 0;
-}
-
-static PyMethodDef VideoLoader_methods[] = {
-    {"add_video_file", (PyCFunction)VideoLoader_AddVideoFile, METH_VARARGS, nullptr},
-    {nullptr},
-};
-
-static PyTypeObject PyVideoLoaderType = {
-    .ob_base = PyVarObject_HEAD_INIT(nullptr, 0) // clang-format off
-    .tp_name = "videoloader._ext._VideoLoader", // clang-format on
-    .tp_basicsize = sizeof(PyVideoLoader),
-    .tp_itemsize = 0,
-    .tp_dealloc = (destructor)PyVideoLoader_dealloc,
-    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
-    .tp_methods = VideoLoader_methods,
-    .tp_init = (initproc)PyVideoLoader_init,
-    .tp_new = PyVideoLoader_new,
+    .tp_init = (initproc)PyVideo_init,
+    .tp_new = PyType_GenericNew,
 };
 
 PyMODINIT_FUNC PyInit__ext(void) {
-    if (PyType_Ready(&PyVideoLoaderType) < 0)
-        return nullptr;
-    borrowed_pyref loaderType((PyObject *)&PyVideoLoaderType);
-
     if (PyType_Ready(&PyVideoType) < 0)
         return nullptr;
     borrowed_pyref videoType((PyObject *)&PyVideoType);
@@ -311,9 +247,6 @@ PyMODINIT_FUNC PyInit__ext(void) {
     import_array(); // import numpy
     videoloader::init();
 
-    if (PyModule_AddObject(m.get(), "_VideoLoader", loaderType.get()) < 0) {
-        return nullptr;
-    }
     if (PyModule_AddObject(m.get(), "_Video", videoType.get()) < 0) {
         return nullptr;
     }

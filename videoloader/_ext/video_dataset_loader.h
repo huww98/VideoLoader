@@ -1,6 +1,6 @@
 #pragma once
 
-#include "videoloader.h"
+#include "video.h"
 #include <atomic>
 #include <chrono>
 #include <condition_variable>

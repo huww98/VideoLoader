@@ -14,7 +14,7 @@ set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE ON)
 add_compile_options(-Wall)
 
 set(VIDEO_LOADER_SRCS
-    videoloader.cpp
+    video.cpp
     av_utils.cpp
     avformat.cpp
     file_io.cpp

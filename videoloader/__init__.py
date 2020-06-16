@@ -24,8 +24,23 @@ class Video(_ext._Video):
 
     Changing the video file content after open results in undefined behaviour.
 
-    Get an instance of this class through `VideoLoader.add_video_file`
+    * url: URL to the file to be opened.
+        Only local file path supported currently
+    * data_container ('numpy' | 'pytorch' | None): Set the output format
     '''
+
+    def __init__(self, url: Union[os.PathLike, str, bytes], data_container='numpy'):
+        super().__init__(url)
+
+        self._data_convert = {
+            None: lambda x: x,
+            'numpy': _data_convert_to_numpy,
+            'pytorch': _data_convert_to_pytorch,
+        }.get(data_container)
+        if self._data_convert is None:
+            raise ValueError(f'Unsupported data container "{data_container}"')
+        
+        self._kept_awake = 0
 
     def get_batch(self, frame_indices: Iterable[int]):
         ''' Get arbitrary number of frames in this video
@@ -72,34 +87,3 @@ class Video(_ext._Video):
         ''' Whether this video is in sleeping state
         '''
         return super().is_sleeping()
-
-
-class VideoLoader(_ext._VideoLoader):
-    ''' Context to load video files.
-
-    * data_container ('numpy' | 'pytorch' | None): Set the output format
-    '''
-
-    def __init__(self, data_container='numpy'):
-        super().__init__(Video)
-        self._data_convert = {
-            None: lambda x: x,
-            'numpy': _data_convert_to_numpy,
-            'pytorch': _data_convert_to_pytorch,
-        }.get(data_container)
-        if self._data_convert is None:
-            raise ValueError(f'Unsupported data container "{data_container}"')
-
-    def add_video_file(self, url: Union[os.PathLike, str, bytes]) -> Video:
-        ''' Open a new video
-
-        * url: URL to the file to be opened.
-            Only local file path supported currently
-
-        The returned `Video` object should be saved and reused for efficient
-        reading.
-        '''
-        video = super().add_video_file(url)
-        video._data_convert = self._data_convert
-        video._kept_awake = 0
-        return video

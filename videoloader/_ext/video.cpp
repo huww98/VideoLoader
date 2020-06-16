@@ -1,4 +1,4 @@
-#include "videoloader.h"
+#include "video.h"
 
 #include <algorithm>
 #include <assert.h>
@@ -15,7 +15,6 @@
 namespace huww {
 namespace videoloader {
 
-video video_loader::add_video_file(std::string url) { return video(url); }
 struct avcodec_context_deleter {
     void operator()(AVCodecContext *c) { avcodec_free_context(&c); }
 };

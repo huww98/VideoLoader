@@ -3,7 +3,7 @@
 #include <iostream>
 
 #include "video_dataset_loader.h"
-#include "videoloader.h"
+#include "video.h"
 #include <spdlog/spdlog.h>
 #include <unistd.h>
 
@@ -28,17 +28,16 @@ int main(int argc, char const *argv[]) {
 
     // std::filesystem::path base = "/mnt/d/Downloads/answering_questions";
     std::filesystem::path base = "/tmp/answering_questions";
-    video_loader loader;
     vector<video> videos;
     for (auto &f : std::filesystem::recursive_directory_iterator(base)) {
         if (f.path().extension() != ".mp4") {
             continue;
         }
         // cout << f.path() << endl;
-        auto video = loader.add_video_file(f.path());
-        video.sleep();
+        auto v = video(f.path());
+        v.sleep();
         // video.get_batch({14, 15});
-        videos.push_back(move(video));
+        videos.push_back(move(v));
         if (videos.size() % 1000 == 0) {
             spdlog::info("{} videos opened...", videos.size());
         }

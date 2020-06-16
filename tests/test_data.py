@@ -7,7 +7,7 @@ import numpy.testing
 import torch
 import torch.testing
 
-from videoloader import VideoLoader
+from videoloader import Video
 import videoloader._ext
 
 
@@ -32,8 +32,7 @@ class GetBatchDataTest(unittest.TestCase):
         return truth
 
     def test_comp_with_ffmpeg(self):
-        loader = VideoLoader()
-        video = loader.add_video_file('./tests/test_video.mp4')
+        video = Video('./tests/test_video.mp4')
         frameIndices = [
             range(1), range(2), range(3), range(8), range(40),
             range(3, 18), list(range(3, 18)) + list(range(66, 88)),
@@ -51,8 +50,7 @@ class GetBatchDataTest(unittest.TestCase):
                         batch[i], expected[i], f'Frame {f} mismatch ({i}th frame in batch)')
 
     def test_pytorch_comp_with_ffmpeg(self):
-        loader = VideoLoader(data_container='pytorch')
-        video = loader.add_video_file('./tests/test_video.mp4')
+        video = Video('./tests/test_video.mp4', data_container='pytorch')
         frames = list(range(2))
         batch = video.get_batch(frames)
         expected = self.get_truth(batch.shape, frames)

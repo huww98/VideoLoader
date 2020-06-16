@@ -47,10 +47,5 @@ class video {
                               dlpack_pool *pool = nullptr);
 };
 
-class video_loader {
-  public:
-    video add_video_file(std::string url);
-};
-
 } // namespace videoloader
 } // namespace huww

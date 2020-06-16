@@ -6,14 +6,23 @@ import torch.utils.dlpack
 import numpy as np
 import numpy.testing
 
-from videoloader import VideoLoader
+from videoloader import Video
 import videoloader._ext
+
+
+class TestOpenFile(unittest.TestCase):
+    def test_file_not_found(self):
+        with self.assertRaises(FileNotFoundError):
+            Video('Anything')
+
+    def test_open_dir(self):
+        with self.assertRaises(IsADirectoryError):
+            Video('tests')
 
 
 class TestGetBatchBasic(unittest.TestCase):
     def setUp(self):
-        loader = VideoLoader(data_container=None)
-        self.video = loader.add_video_file('./tests/test_video.mp4')
+        self.video = Video('./tests/test_video.mp4', data_container=None)
         self.batch = self.video.get_batch([0, 1])
 
     def test_type(self):
@@ -36,8 +45,7 @@ class TestGetBatchBasic(unittest.TestCase):
 
 class TestGetBatch(unittest.TestCase):
     def setUp(self):
-        loader = VideoLoader()
-        self.video = loader.add_video_file('./tests/test_video.mp4')
+        self.video = Video('./tests/test_video.mp4')
 
     def test_numpy_shape(self):
         batch = self.video.get_batch([0, 1])
@@ -47,8 +55,7 @@ class TestGetBatch(unittest.TestCase):
 
 class TestGetBatchPytorch(unittest.TestCase):
     def setUp(self):
-        loader = VideoLoader(data_container='pytorch')
-        self.video = loader.add_video_file('./tests/test_video.mp4')
+        self.video = Video('./tests/test_video.mp4', data_container='pytorch')
 
     def test_pytorch_shape(self):
         batch = self.video.get_batch([0, 1])
@@ -57,20 +64,17 @@ class TestGetBatchPytorch(unittest.TestCase):
 
 
 class TestSleepState(unittest.TestCase):
-    def setUp(self):
-        self.loader = VideoLoader()
-
     def test_created_awake(self):
-        video = self.loader.add_video_file('./tests/test_video.mp4')
+        video = Video('./tests/test_video.mp4')
         self.assertFalse(video.is_sleeping())
 
     def test_sleeping_after_read(self):
-        video = self.loader.add_video_file('./tests/test_video.mp4')
+        video = Video('./tests/test_video.mp4')
         video.get_batch([0, 1])
         self.assertTrue(video.is_sleeping())
 
     def test_keep_awake(self):
-        video = self.loader.add_video_file('./tests/test_video.mp4')
+        video = Video('./tests/test_video.mp4')
         with video.keep_awake():
             video.get_batch([0, 1])
             self.assertFalse(video.is_sleeping())
