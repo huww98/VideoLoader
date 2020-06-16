@@ -20,7 +20,7 @@ jobs:
     env:
       CXX: ${{ matrix.cxx }}
     strategy:
-      # fail-fast: false
+      fail-fast: false
       matrix:
         cxx: [g++-8]
         python-version: [3.6, 3.7, 3.8]
@@ -67,7 +67,7 @@ jobs:
   cpp_only_build:
     runs-on: ubuntu-latest
     strategy:
-      # fail-fast: false
+      fail-fast: false
       matrix:
         config: [Debug, Release]
     steps:

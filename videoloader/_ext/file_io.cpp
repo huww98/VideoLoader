@@ -71,11 +71,14 @@ int64_t file_io::seek(int64_t pos, int whence) {
 }
 
 avio_context_ptr file_io::new_avio_context(std::string file_path) {
+    auto io = std::make_unique<file_io>(file_path);
     uint8_t *buffer = (uint8_t *)av_malloc(IO_BUFFER_SIZE);
-    auto io = new file_io(file_path);
+    if (!buffer) {
+        throw std::bad_alloc();
+    }
     return avio_context_ptr(
         avio_alloc_context(
-            buffer, IO_BUFFER_SIZE, 0, io,
+            buffer, IO_BUFFER_SIZE, 0, io.release(),
             [](void *opaque, uint8_t *buf, int buf_size) {
                 return static_cast<file_io *>(opaque)->read(buf, buf_size);
             },
