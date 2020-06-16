@@ -1,4 +1,7 @@
 name: Test
+env:
+  MAKEFLAGS: "-j$(nproc)"
+  CXX: g++-8
 
 on:
   push:
@@ -13,8 +16,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      CXX: ${{ matrix.cxx }}
     strategy:
-      fail-fast: false
+      # fail-fast: false
       matrix:
         cxx: [g++-8]
         python-version: [3.6, 3.7, 3.8]
@@ -32,17 +37,27 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install FFmpeg and GTest
+      - name: Install FFmpeg
         run: |
           sudo add-apt-repository ppa:jonathonf/ffmpeg-4
           sudo apt-get update
-          sudo apt-get install -y ffmpeg libavcodec-dev libavformat-dev libavfilter-dev libavdevice-dev libgtest-dev
+          sudo apt-get install -y ffmpeg libavcodec-dev libavformat-dev libavfilter-dev libavdevice-dev
+      - name: Install GTest
+        run: |
+          cd
+          git clone --depth=1 --branch=release-1.10.0 https://github.com/google/googletest.git
+          cd googletest
+          mkdir build
+          cd build
+          cmake .. -DCMAKE_BUILD_TYPE=Release
+          make
+          make install
       - name: Install PyTorch
         run: |
           pip install torch==1.5.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
       - name: Install with CXX ${{ matrix.cxx }}
         run: |
-          CXX=${{ matrix.cxx }} MAKEFLAGS="-j$(nproc)" python -m pip install --verbose --editable .
+          python -m pip install --verbose --editable .
       - name: Test
         run: |
           python -m unittest --verbose
@@ -51,18 +66,28 @@ jobs:
   cpp_only_build:
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: false
+      # fail-fast: false
       matrix:
         config: [Debug, Release]
     steps:
       - uses: actions/checkout@v2
         with:
           submodules: recursive
-      - name: Install FFmpeg and GTest
+      - name: Install FFmpeg
         run: |
           sudo add-apt-repository ppa:jonathonf/ffmpeg-4
           sudo apt-get update
-          sudo apt-get install -y ffmpeg libavcodec-dev libavformat-dev libavfilter-dev libavdevice-dev libgtest-dev
+          sudo apt-get install -y ffmpeg libavcodec-dev libavformat-dev libavfilter-dev libavdevice-dev
+      - name: Install GTest
+        run: |
+          cd
+          git clone --depth=1 --branch=release-1.10.0 https://github.com/google/googletest.git
+          cd googletest
+          mkdir build
+          cd build
+          cmake .. -DCMAKE_BUILD_TYPE=Release
+          make
+          make install
       - name: Install with config ${{ matrix.config }}
         run: |
           mkdir build
