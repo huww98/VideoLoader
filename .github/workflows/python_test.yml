@@ -32,11 +32,11 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install FFmpeg
+      - name: Install FFmpeg and GTest
         run: |
           sudo add-apt-repository ppa:jonathonf/ffmpeg-4
           sudo apt-get update
-          sudo apt-get install -y ffmpeg libavcodec-dev libavformat-dev libavfilter-dev libavdevice-dev
+          sudo apt-get install -y ffmpeg libavcodec-dev libavformat-dev libavfilter-dev libavdevice-dev libgtest-dev
       - name: Install PyTorch
         run: |
           pip install torch==1.5.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
@@ -53,27 +53,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        cxx: [g++-8]
         config: [Debug, Release]
-        include:
-          - cxx: clang++-9
-            config: Release
-          - cxx: g++-9
-            config: Release
     steps:
       - uses: actions/checkout@v2
         with:
           submodules: recursive
-      - name: Install FFmpeg
+      - name: Install FFmpeg and GTest
         run: |
           sudo add-apt-repository ppa:jonathonf/ffmpeg-4
           sudo apt-get update
-          sudo apt-get install -y ffmpeg libavcodec-dev libavformat-dev libavfilter-dev libavdevice-dev
-      - name: Install with CXX ${{ matrix.cxx }} and config ${{ matrix.config }}
+          sudo apt-get install -y ffmpeg libavcodec-dev libavformat-dev libavfilter-dev libavdevice-dev libgtest-dev
+      - name: Install with config ${{ matrix.config }}
         run: |
           mkdir build
           cd build
-          CXX=${{ matrix.cxx }} cmake ../videoloader/_ext -DCMAKE_BUILD_TYPE=${{ matrix.config }}
+          cmake ../videoloader/_ext -DCMAKE_BUILD_TYPE=${{ matrix.config }}
           make -j$(nproc)
       - name: Test
         run: |
