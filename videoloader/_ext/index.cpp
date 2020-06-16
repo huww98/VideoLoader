@@ -102,8 +102,18 @@ static struct PyModuleDef videoLoaderModule = {
 
 struct PyVideo {
     PyObject_HEAD;
-    videoloader::video video;
+    std::optional<videoloader::video> video;
 };
+
+static PyObject *PyVideo_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
+    owned_pyref self = type->tp_alloc(type, 0);
+    if (!self) {
+        return nullptr;
+    }
+    auto &pyVideo = *(PyVideo *)self.get();
+    new (&pyVideo.video) decltype(pyVideo.video)();
+    return self.transfer();
+}
 
 static int PyVideo_init(PyVideo *self, PyObject *args, PyObject *kwds) {
     std::string file_path_str;
@@ -124,7 +134,7 @@ static int PyVideo_init(PyVideo *self, PyObject *args, PyObject *kwds) {
 
     try {
         release_GIL_guard no_GIL;
-        new (&self->video) videoloader::video(file_path_str);
+        self->video = videoloader::video(file_path_str);
         return 0;
     } catch (std::exception &e) {
         handle_exception(e);
@@ -133,13 +143,13 @@ static int PyVideo_init(PyVideo *self, PyObject *args, PyObject *kwds) {
 }
 
 static void PyVideo_dealloc(PyVideo *v) {
-    v->video.~video();
+    std::destroy_at(&v->video);
     Py_TYPE(v)->tp_free((PyObject *)v);
 }
 
 static PyObject *PyVideo_Sleep(PyVideo *self, PyObject *args) {
     try {
-        self->video.sleep();
+        self->video->sleep();
     } catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return nullptr;
@@ -149,7 +159,7 @@ static PyObject *PyVideo_Sleep(PyVideo *self, PyObject *args) {
 
 static PyObject *PyVideo_IsSleeping(PyVideo *self, PyObject *args) {
     try {
-        return self->video.is_sleeping() ? Py_True : Py_False;
+        return self->video->is_sleeping() ? Py_True : Py_False;
     } catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return nullptr;
@@ -157,13 +167,13 @@ static PyObject *PyVideo_IsSleeping(PyVideo *self, PyObject *args) {
 }
 
 static PyObject *PyVideo_NumFrames(PyVideo *self, PyObject *args) {
-    return PyLong_FromSize_t(self->video.num_frames());
+    return PyLong_FromSize_t(self->video->num_frames());
 }
 
 static owned_pyref FractionClass;
 
 static PyObject *PyVideo_AverageFrameRate(PyVideo *self, PyObject *args) {
-    auto frameRate = self->video.average_frame_rate();
+    auto frameRate = self->video->average_frame_rate();
     owned_pyref pyFrameRateArgs = Py_BuildValue("ii", frameRate.num, frameRate.den);
     if (!pyFrameRateArgs) {
         return nullptr;
@@ -197,7 +207,7 @@ static PyObject *PyVideo_GetBatch(PyVideo *self, PyObject *args) {
         videoloader::video_dlpack::ptr dlPack;
         {
             release_GIL_guard no_GIL;
-            dlPack = self->video.get_batch(indices);
+            dlPack = self->video->get_batch(indices);
         }
         return PyCapsule_New(dlPack.release(), dltensor_capsule_name, [](PyObject *cap) {
             if (strcmp(PyCapsule_GetName(cap), dltensor_capsule_name) != 0) {
@@ -232,7 +242,7 @@ static PyTypeObject PyVideoType = {
     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
     .tp_methods = Video_methods,
     .tp_init = (initproc)PyVideo_init,
-    .tp_new = PyType_GenericNew,
+    .tp_new = PyVideo_new,
 };
 
 PyMODINIT_FUNC PyInit__ext(void) {

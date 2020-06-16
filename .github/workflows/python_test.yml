@@ -44,7 +44,7 @@ jobs:
           CXX=${{ matrix.cxx }} MAKEFLAGS="-j$(nproc)" python -m pip install --verbose --editable .
       - name: Test
         run: |
-          python -m unittest
+          python -m unittest --verbose
 
   publish_sdist:
     needs: [build]

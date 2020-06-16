@@ -26,6 +26,13 @@ int main(int argc, char const *argv[]) {
     spdlog::set_pattern("[thread %t] %+");
     spdlog::set_level(spdlog::level::trace);
 
+    try {
+        video("/tmp/answering_questions");
+        assert(false && "Should not reach here"); 
+    } catch (av_error& e) {
+        assert(e.code() == AVERROR(EISDIR));
+    }
+
     // std::filesystem::path base = "/mnt/d/Downloads/answering_questions";
     std::filesystem::path base = "/tmp/answering_questions";
     vector<video> videos;
