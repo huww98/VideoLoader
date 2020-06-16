@@ -14,6 +14,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         cxx: [g++-8]
         python-version: [3.6, 3.7, 3.8]
@@ -45,9 +46,41 @@ jobs:
       - name: Test
         run: |
           python -m unittest --verbose
+          $(find ./build -name videoloader_tests)
+
+  cpp_only_build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cxx: [g++-8]
+        config: [Debug, Release]
+        include:
+          - cxx: clang++-9
+            config: Release
+          - cxx: g++-9
+            config: Release
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+      - name: Install FFmpeg
+        run: |
+          sudo add-apt-repository ppa:jonathonf/ffmpeg-4
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libavcodec-dev libavformat-dev libavfilter-dev libavdevice-dev
+      - name: Install with CXX ${{ matrix.cxx }} and config ${{ matrix.config }}
+        run: |
+          mkdir build
+          cd build
+          CXX=${{ matrix.cxx }} cmake ../videoloader/_ext -DCMAKE_BUILD_TYPE=${{ matrix.config }}
+          make -j$(nproc)
+      - name: Test
+        run: |
+          $(find ./build -name videoloader_tests)
 
   publish_sdist:
-    needs: [build]
+    needs: [build, cpp_only_build]
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'release' && github.event.action == 'created' }}
     steps:
