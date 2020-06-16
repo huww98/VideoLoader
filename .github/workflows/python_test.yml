@@ -2,6 +2,7 @@ name: Test
 env:
   MAKEFLAGS: "-j$(nproc)"
   CXX: g++-8
+  CC: gcc-8
 
 on:
   push:
@@ -51,7 +52,7 @@ jobs:
           cd build
           cmake .. -DCMAKE_BUILD_TYPE=Release
           make
-          make install
+          sudo make install
       - name: Install PyTorch
         run: |
           pip install torch==1.5.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
@@ -87,7 +88,7 @@ jobs:
           cd build
           cmake .. -DCMAKE_BUILD_TYPE=Release
           make
-          make install
+          sudo make install
       - name: Install with config ${{ matrix.config }}
         run: |
           mkdir build
