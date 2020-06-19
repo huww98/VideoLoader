@@ -28,7 +28,7 @@ int main(int argc, char const *argv[]) {
 
     try {
         video("/tmp/answering_questions");
-        assert(false && "Should not reach here"); 
+        assert(false && "Should not reach here");
     } catch (av_error& e) {
         assert(e.code() == AVERROR(EISDIR));
     }

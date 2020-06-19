@@ -27,7 +27,9 @@ set(VIDEO_LOADER_SRCS
     file_io.cpp
     avfilter_graph.cpp
     video_dlpack.cpp
-    video_dataset_loader.cpp)
+    video_dataset_loader.cpp
+    tar_iterator.cpp
+)
 if(WITH_PYTHON)
     list(APPEND VIDEO_LOADER_SRCS
         index.cpp
