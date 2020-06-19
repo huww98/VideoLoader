@@ -33,6 +33,34 @@
             ]
         },
         {
+            "name": "(gdb) GTest",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/nopy/tests/videoloader_tests",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [
+                {
+                    "name": "ASAN_OPTIONS",
+                    "value": "fast_unwind_on_malloc=false",
+                },
+                {
+                    "name": "LD_LIBRARY_PATH",
+                    "value": "/usr/lib/x86_64-linux-gnu/debug/"
+                }
+            ],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "为 gdb 启用整齐打印",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
             "name": "(gdb) python unittest",
             "type": "cppdbg",
             "request": "launch",

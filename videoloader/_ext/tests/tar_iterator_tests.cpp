@@ -5,7 +5,7 @@
 #include "tar_iterator.h"
 
 struct expected_tar_entry {
-    std::filesystem::path path;
+    std::string path;
     huww::tar_entry_type type;
     std::streampos start_pos;
     std::streamsize file_size;

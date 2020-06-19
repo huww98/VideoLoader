@@ -59,6 +59,8 @@ jobs:
       - name: Install with CXX ${{ matrix.cxx }}
         run: |
           python -m pip install --verbose --editable .
+          cd ./build/temp*
+          make
       - name: Test
         run: |
           python -m unittest --verbose
@@ -94,7 +96,7 @@ jobs:
           mkdir build
           cd build
           cmake ../videoloader/_ext -DCMAKE_BUILD_TYPE=${{ matrix.config }}
-          make -j$(nproc)
+          make
       - name: Test
         run: |
           $(find ./build -name videoloader_tests)

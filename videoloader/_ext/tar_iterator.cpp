@@ -42,7 +42,7 @@ static std::streamsize parse_size(const decltype(tar_header::size) &size) {
     return result;
 }
 
-static std::filesystem::path parse_path(decltype(tar_header::name) &name) {
+static std::string parse_path(decltype(tar_header::name) &name) {
     auto name_end = std::find(name.begin(), name.end(), '\0');
     return std::string(name.begin(), name_end);
 }

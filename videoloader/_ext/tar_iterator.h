@@ -26,7 +26,7 @@ enum class tar_entry_type : uint8_t {
 class tar_entry {
     tar_file &_tar_file;
 
-    std::filesystem::path _path;
+    std::string _path;
     std::streamsize _file_size;
     std::streampos _start_pos;
     tar_entry_type _type;
@@ -34,7 +34,7 @@ class tar_entry {
     friend class tar_iterator;
     friend class tar_file;
 
-    tar_entry(tar_file &file) : _tar_file(file) {}
+    tar_entry(tar_file &file) : _tar_file(file), _path() {}
 
   public:
     auto path() const { return _path; }
