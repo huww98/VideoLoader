@@ -27,11 +27,24 @@ static_assert(sizeof(tar_header) == 512);
 constexpr std::array<char, 8> guntar_magic = {'u', 's', 't', 'a', 'r', ' ', ' ', '\0'};
 
 static std::streamsize parse_size(const decltype(tar_header::size) &size) {
-    if (size[0] & 0x80) {
+    if (size[0] & char(0x80)) {
         // Binary representation
-        std::streamsize result = size[0] & ~0x80;
-        for (size_t i = 1; i < size.size(); i++) {
-            result |= (static_cast<std::streamsize>(size[i]) << (size.size() - i - 1));
+        std::streamsize result;
+        if constexpr (sizeof(result) >= sizeof(size)) {
+            result = static_cast<std::streamsize>(size[0] & ~char(0x80)) << ((size.size() - 1) * 8);
+        } else {
+            if (size[0] != char(0x80)) {
+                throw std::runtime_error("size too large");
+            }
+            result = 0;
+        }
+        for (size_t i = 1; i < size.size() - sizeof(result); i++) {
+            if (size[i] != 0) {
+                throw std::runtime_error("size too large");
+            }
+        }
+        for (size_t i = size.size() - sizeof(result); i < size.size(); i++) {
+            result |= (static_cast<std::streamsize>(size[i]) << ((size.size() - i - 1) * 8));
         }
         return result;
     }
@@ -120,12 +133,13 @@ class tar_file {
                 next_header_pos = _entry._start_pos + round_file_record_size(_entry._file_size);
                 return true;
             case tar_entry_type::long_pathname: {
-                auto path_length = parse_size(header.size) - 1; //Cut off last '\0'
+                auto path_length = parse_size(header.size) - 1; // Cut off last '\0'
                 std::string long_path(path_length, '\0');
                 tar_stream.read(long_path.data(), path_length);
                 _entry._path = long_path;
                 has_long_pathname = true;
-                next_header_pos += std::streamoff(header_size) + round_file_record_size(path_length);
+                next_header_pos +=
+                    std::streamoff(header_size) + round_file_record_size(path_length);
                 break;
             }
 

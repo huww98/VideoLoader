@@ -39,7 +39,34 @@ TEST(TarIterator, Iterate) {
 }
 
 TEST(TarIterator, IterateBreak) {
-    for ([[maybe_unused]]auto &entry : huww::tar_iterator("./tests/tar/test.tar")) {
+    for ([[maybe_unused]] auto &entry : huww::tar_iterator("./tests/tar/test.tar")) {
         break; // Should not have memory leak.
     }
 }
+
+TEST(TarIterator, BigFile) {
+    for (auto &entry : huww::tar_iterator("./tests/tar/bigzero.tar.head")) {
+        EXPECT_EQ("bigzero", entry.path());
+        EXPECT_EQ(std::streamsize(1) << 34, entry.file_size()); // 16GiB
+        break;
+    }
+}
+
+class TarFileTooLarge : public ::testing::TestWithParam<std::string> {};
+
+TEST_P(TarFileTooLarge, Throws) {
+    if constexpr(sizeof(std::streamsize) > 8) {
+        GTEST_SKIP();
+    }
+    try {
+        for ([[maybe_unused]] auto &entry : huww::tar_iterator(GetParam())) {
+            FAIL();
+        }
+    } catch (std::runtime_error &e) {
+        EXPECT_EQ(std::string("size too large"), e.what());
+    }
+}
+
+INSTANTIATE_TEST_SUITE_P(Inst, TarFileTooLarge,
+                         ::testing::Values("tests/tar/too-large.tar.head",
+                                           "tests/tar/too-large2.tar.head"));
