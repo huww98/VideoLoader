@@ -42,7 +42,14 @@ class tar_entry {
     auto file_size() const { return _file_size; }
     auto type() const { return _type; }
 
-    std::istream &begin_read_content();
+    /**
+     * Return a stream that is positioned at the begin of this file. You can read up to
+     * `file_size()` from this stream.
+     *
+     * \note You can only use this while the `tar_iterator` is still in scope. If not, please open
+     * the tar file yourself and use `content_start_position()` to seek to this file.
+     */
+    std::istream &begin_read_content() const;
 };
 
 class tar_iterator {

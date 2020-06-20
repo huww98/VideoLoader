@@ -44,6 +44,19 @@ TEST(TarIterator, IterateBreak) {
     }
 }
 
+TEST(TarIterator, ReadContent) {
+    for (auto &entry : huww::tar_iterator("./tests/tar/test.tar")) {
+        if (entry.path() == "testtar/testfile.txt") {
+            auto &stream = entry.begin_read_content();
+            std::string content(entry.file_size(), '\0');
+            stream.read(content.data(), entry.file_size());
+            EXPECT_EQ("1234567890aaa\n", content);
+            return;
+        }
+    }
+    FAIL() << "File not found in tar";
+}
+
 TEST(TarIterator, BigFile) {
     for (auto &entry : huww::tar_iterator("./tests/tar/bigzero.tar.head")) {
         EXPECT_EQ("bigzero", entry.path());
@@ -101,5 +114,18 @@ TEST(TarPaxFormat, Throws) {
         FAIL();
     } catch (std::runtime_error &e) {
         EXPECT_STREQ("Magic not match. Only GNU Tar format supported.", e.what());
+    }
+}
+
+TEST(TarReadDirContent, Throws) {
+    try {
+        for (auto &entry : huww::tar_iterator("./tests/tar/test.tar")) {
+            ASSERT_EQ("testtar/", entry.path());
+            entry.begin_read_content();
+            FAIL();
+        }
+        FAIL();
+    } catch (std::logic_error &e) {
+        EXPECT_STREQ("Can only read content of file entry.", e.what());
     }
 }

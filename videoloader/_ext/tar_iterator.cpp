@@ -164,7 +164,7 @@ class tar_file {
     const tar_entry &entry() { return _entry; }
 };
 
-std::istream &tar_entry::begin_read_content() {
+std::istream &tar_entry::begin_read_content() const {
     if (this->type() != tar_entry_type::file) {
         throw std::logic_error("Can only read content of file entry.");
     }
