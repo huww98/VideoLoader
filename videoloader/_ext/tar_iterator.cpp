@@ -78,7 +78,7 @@ class tar_file {
         auto read_header = [this, &next_header] {
             tar_stream.read(reinterpret_cast<char *>(next_header.data()), next_header.size());
             if (tar_stream.eof()) {
-                throw std::runtime_error("Unexpected EOF.");
+                throw std::runtime_error("Unexpected EOF");
             }
             if (!tar_stream) {
                 throw std::system_error(errno, std::system_category(),

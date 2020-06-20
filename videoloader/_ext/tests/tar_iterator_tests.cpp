@@ -55,18 +55,51 @@ TEST(TarIterator, BigFile) {
 class TarFileTooLarge : public ::testing::TestWithParam<std::string> {};
 
 TEST_P(TarFileTooLarge, Throws) {
-    if constexpr(sizeof(std::streamsize) > 8) {
+    if constexpr (sizeof(std::streamsize) > 8) {
         GTEST_SKIP();
     }
     try {
         for ([[maybe_unused]] auto &entry : huww::tar_iterator(GetParam())) {
             FAIL();
         }
+        FAIL();
     } catch (std::runtime_error &e) {
-        EXPECT_EQ(std::string("size too large"), e.what());
+        EXPECT_STREQ("size too large", e.what());
     }
 }
 
 INSTANTIATE_TEST_SUITE_P(Inst, TarFileTooLarge,
                          ::testing::Values("tests/tar/too-large.tar.head",
                                            "tests/tar/too-large2.tar.head"));
+
+TEST(TarWrongChecksum, Throws) {
+    try {
+        for ([[maybe_unused]] auto &entry : huww::tar_iterator("tests/tar/checksum-error.tar")) {
+            FAIL();
+        }
+        FAIL();
+    } catch (std::runtime_error &e) {
+        EXPECT_STREQ("Header checksum mismatch", e.what());
+    }
+}
+
+TEST(TarEOF, Throws) {
+    try {
+        for ([[maybe_unused]] auto &entry : huww::tar_iterator("tests/tar/premature-eof.tar")) {
+        }
+        FAIL();
+    } catch (std::runtime_error &e) {
+        EXPECT_STREQ("Unexpected EOF", e.what());
+    }
+}
+
+TEST(TarPaxFormat, Throws) {
+    try {
+        for ([[maybe_unused]] auto &entry : huww::tar_iterator("tests/tar/pax.tar")) {
+            FAIL();
+        }
+        FAIL();
+    } catch (std::runtime_error &e) {
+        EXPECT_STREQ("Magic not match. Only GNU Tar format supported.", e.what());
+    }
+}
