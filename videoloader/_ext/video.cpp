@@ -33,13 +33,16 @@ using avpacket_ptr = std::unique_ptr<AVPacket, avpacket_deleter>;
 
 auto new_avpacket() { return avpacket_ptr(CHECK_AV(av_packet_alloc(), "alloc AVPacket failed")); }
 
-video::video(std::string url) : format(url) {
+video::video(std::string url) : video(file_io::file_spec{.path=url}) {
+}
+
+video::video(const file_io::file_spec &spec): format(spec) {
     auto fmt_ctx = format.format_context();
     CHECK_AV(avformat_find_stream_info(fmt_ctx, nullptr), "find stream info failed");
 
     stream_index =
         CHECK_AV(av_find_best_stream(fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, &this->decoder, 0),
-                 "Unable to find video stream for \"" << url << "\"");
+                 "Unable to find video stream for \"" << spec.path << "\"");
 
     auto packet = new_avpacket();
 

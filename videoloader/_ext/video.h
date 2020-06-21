@@ -35,6 +35,7 @@ class video {
 
   public:
     explicit video(std::string url);
+    video(const file_io::file_spec &spec);
 
     void sleep();
     void wake_up();

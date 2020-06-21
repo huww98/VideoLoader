@@ -5,14 +5,16 @@
 namespace huww {
 namespace videoloader {
 
-avformat::avformat(std::string url) : io_context(file_io::new_avio_context(url)) {
+avformat::avformat(std::string url) : avformat(file_io::file_spec{.path = url}) {}
+
+avformat::avformat(const file_io::file_spec &spec) : io_context(file_io::new_avio_context(spec)) {
     this->fmt_ctx = CHECK_AV(avformat_alloc_context(), "Unable to alloc AVFormatContext");
 
     // Use custom IO, manage AVIOContext ourself to save memory and other resources.
     this->fmt_ctx->pb = io_context.get();
 
-    CHECK_AV(avformat_open_input(&this->fmt_ctx, url.c_str(), nullptr, nullptr),
-             "Unable to open input \"" << url << "\"");
+    CHECK_AV(avformat_open_input(&this->fmt_ctx, spec.path.c_str(), nullptr, nullptr),
+             "Unable to open input \"" << spec.path << "\"");
 }
 
 avformat &avformat::operator=(avformat &&other) noexcept {
