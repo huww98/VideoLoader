@@ -38,12 +38,13 @@ file_io::file_io(std::string file_path, std::streampos start_pos, std::streamsiz
     }
 }
 
-bool file_io::is_sleeping() { return !fstream.is_open(); }
+bool file_io::is_sleeping() {
+    return external_stream == nullptr && !fstream.is_open();
+}
 
 void file_io::sleep() {
     external_stream = nullptr;
     if (!is_sleeping()) {
-        last_pos = fstream.tellg();
         fstream.close();
     }
 }
@@ -51,11 +52,16 @@ void file_io::sleep() {
 void file_io::wake_up() {
     if (is_sleeping()) {
         this->open_io();
-        fstream.seekg(last_pos, std::fstream::beg);
+        fstream.seekg(last_pos);
     }
 }
 
 int file_io::read(uint8_t *buf, int size) {
+    size = std::min(std::streamsize(size), start_pos + file_size - last_pos);
+    if (size <= 0) {
+        return AVERROR_EOF;
+    }
+
     auto &s = current_stream();
     s.read((char *)buf, size);
     if (s.eof()) {
@@ -67,7 +73,9 @@ int file_io::read(uint8_t *buf, int size) {
     if (!s) {
         return AVERROR(errno);
     }
-    return s.gcount();
+    auto read_count = s.gcount();
+    last_pos += read_count;
+    return read_count;
 }
 
 int64_t file_io::seek(int64_t pos, int whence) {
@@ -94,7 +102,8 @@ int64_t file_io::seek(int64_t pos, int whence) {
     if (!s) {
         return AVERROR(errno);
     }
-    return s.tellg() - start_pos;
+    last_pos = s.tellg();
+    return last_pos - start_pos;
 }
 
 avio_context_ptr file_io::new_avio_context(const file_spec &spec) {
