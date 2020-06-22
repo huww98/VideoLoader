@@ -2,7 +2,7 @@ from pathlib import Path
 
 import psutil
 
-from videoloader import VideoLoader
+from videoloader import Video
 
 BASE = Path('/tmp/answering_questions')
 
@@ -10,17 +10,16 @@ def main():
     this_process = psutil.Process()
 
     files = list(BASE.glob('**/*.mp4'))
-    loader = VideoLoader()
 
     # Warm up
     for f in files[:16]:
-        loader.add_video_file(f)
+        Video(f)
 
     init_rss = rss = this_process.memory_info().rss
     print(rss)
     videos = []
     for i, f in enumerate(files):
-        v = loader.add_video_file(f)
+        v = Video(f)
         v.sleep()
         videos.append(v)
         new_rss = this_process.memory_info().rss

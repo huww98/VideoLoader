@@ -33,10 +33,9 @@ using avpacket_ptr = std::unique_ptr<AVPacket, avpacket_deleter>;
 
 auto new_avpacket() { return avpacket_ptr(CHECK_AV(av_packet_alloc(), "alloc AVPacket failed")); }
 
-video::video(std::string url) : video(file_io::file_spec{.path=url}) {
-}
+video::video(std::string url) : video(file_io::file_spec{.path = url}) {}
 
-video::video(const file_io::file_spec &spec): format(spec) {
+video::video(const file_io::file_spec &spec) : format(spec) {
     auto fmt_ctx = format.format_context();
     CHECK_AV(avformat_find_stream_info(fmt_ctx, nullptr), "find stream info failed");
 
@@ -60,6 +59,8 @@ video::video(const file_io::file_spec &spec): format(spec) {
         if (packet->flags & AV_PKT_FLAG_KEY) {
             last_key_frame_index = packet_index.size();
         }
+        // First frame should be a key frame
+        assert(last_key_frame_index >= 0);
         packet_index.push_back({
             .pts = packet->pts,
             .key_frame_index = last_key_frame_index,
@@ -142,7 +143,7 @@ class video_packet_scheduler {
     bool finished() { return _finished; }
     AVPacket *next() {
         if (_finished) {
-            throw std::runtime_error("No more packet.");
+            throw std::logic_error("No more packet.");
         }
         if (!packet_consumed) {
             return packet.get();
@@ -250,7 +251,8 @@ video_dlpack::ptr video::get_batch(const std::vector<size_t> &frame_indices, dlp
                     pack_builder.copy_from_frame(filtered_frame, next_request->request_index);
                     SPDLOG_TRACE("Copied to index {}", next_request->request_index);
                     next_request++;
-                } while (next_request != request.cend() && filtered_frame->pts == next_request->pts);
+                } while (next_request != request.cend() &&
+                         filtered_frame->pts == next_request->pts);
                 av_frame_unref(filtered_frame);
                 if (next_request == request.cend()) {
                     eof = true;

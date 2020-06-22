@@ -38,6 +38,8 @@ file_io &get_file_io(avio_context_ptr &ctx) { return *static_cast<file_io *>(ctx
 
 void avformat::sleep() {
     if (!is_sleeping()) {
+        avio_flush(this->fmt_ctx->pb);
+        avformat_flush(this->fmt_ctx);
         get_file_io(this->io_context).sleep();
         av_freep(&this->io_context->buffer); // to save memory
     }
