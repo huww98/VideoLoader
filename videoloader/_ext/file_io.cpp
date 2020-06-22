@@ -83,14 +83,16 @@ int64_t file_io::seek(int64_t pos, int whence) {
     switch (whence) {
     case SEEK_SET:
         pos += this->start_pos;
+        last_pos = pos;
         dir = std::istream::beg;
         break;
     case SEEK_CUR:
+        last_pos += pos;
         dir = std::istream::cur;
         break;
     case SEEK_END:
         dir = std::istream::beg;
-        pos = pos + start_pos + file_size;
+        last_pos = pos = pos + start_pos + file_size;
         break;
     case AVSEEK_SIZE:
         return file_size;
@@ -102,7 +104,6 @@ int64_t file_io::seek(int64_t pos, int whence) {
     if (!s) {
         return AVERROR(errno);
     }
-    last_pos = s.tellg();
     return last_pos - start_pos;
 }
 
