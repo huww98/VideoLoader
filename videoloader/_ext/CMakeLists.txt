@@ -29,6 +29,7 @@ set(VIDEO_LOADER_SRCS
     video_dlpack.cpp
     video_dataset_loader.cpp
     tar_iterator.cpp
+    video_tar.cpp
 )
 if(WITH_PYTHON)
     list(APPEND VIDEO_LOADER_SRCS

@@ -2,9 +2,9 @@
 #include <filesystem>
 #include <iostream>
 
-#include "video_dataset_loader.h"
 #include "video.h"
-#include "tar_iterator.h"
+#include "video_dataset_loader.h"
+#include "video_tar.h"
 
 #include <spdlog/spdlog.h>
 #include <unistd.h>
@@ -15,7 +15,7 @@ using namespace std;
 constexpr int num_threads = 2;
 constexpr int batch_size = 32;
 
-vector<size_t> frames(const video& v) {
+vector<size_t> frames(const video &v) {
     size_t num = min(v.num_frames(), (size_t)16);
     vector<size_t> frames;
     for (size_t i = 0; i < num; i++) {
@@ -45,25 +45,14 @@ vector<video> open_videos() {
 }
 
 vector<video> open_tar_videos() {
-    std::filesystem::path base = "/media/huww/44A02C63A02C5E24/Downloads/answering_questions.tar";
-    vector<video> videos;
-    for (auto &entry : huww::tar_iterator(base)) {
-        if (entry.type() != huww::tar_entry_type::file) {
-            continue;
-        }
-        auto v = video({
-            .path = base,
-            .start_pos = entry.content_start_position(),
-            .file_size = entry.file_size(),
-            .external_stream = &entry.begin_read_content(),
-        });
-        v.sleep();
-        videos.push_back(move(v));
-        if (videos.size() % 1000 == 0) {
-            spdlog::info("{} videos opened...", videos.size());
-        }
-    }
-    return videos;
+    return open_video_tar("/media/huww/44A02C63A02C5E24/Downloads/answering_questions.tar",
+                          [n = 0](const huww::tar_entry &entry) mutable {
+                              n++;
+                              if (n % 1000 == 0) {
+                                  spdlog::info("{} videos opened...", n);
+                              }
+                              return true;
+                          });
 }
 
 int main(int argc, char const *argv[]) {
@@ -74,6 +63,7 @@ int main(int argc, char const *argv[]) {
     auto videos = open_tar_videos();
 
     spdlog::info("{} videos opened.", videos.size());
+    return 0;
 
     dataset_load_schedule sche;
     sche.push_back({});

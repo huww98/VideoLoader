@@ -2,6 +2,7 @@ include(GoogleTest)
 add_executable(videoloader_tests
     video_tests.cpp
     tar_iterator_tests.cpp
+    video_tar_tests.cpp
 )
 target_link_libraries(videoloader_tests videoloader GTest::GTest GTest::Main)
 gtest_discover_tests(videoloader_tests
