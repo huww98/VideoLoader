@@ -62,6 +62,7 @@ target_compile_definitions(videoloader PRIVATE SPDLOG_ACTIVE_LEVEL=${LOG_LEVEL})
 
 add_executable(test_main main.cpp)
 target_link_libraries(test_main videoloader spdlog)
+target_compile_definitions(test_main PRIVATE SPDLOG_ACTIVE_LEVEL=${LOG_LEVEL})
 
 find_package(GTest)
 if(NOT GTEST_FOUND)

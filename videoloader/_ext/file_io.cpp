@@ -38,9 +38,7 @@ file_io::file_io(std::string file_path, std::streampos start_pos, std::streamsiz
     }
 }
 
-bool file_io::is_sleeping() {
-    return external_stream == nullptr && !fstream.is_open();
-}
+bool file_io::is_sleeping() { return external_stream == nullptr && !fstream.is_open(); }
 
 void file_io::sleep() {
     external_stream = nullptr;
@@ -107,6 +105,12 @@ int64_t file_io::seek(int64_t pos, int whence) {
     return last_pos - start_pos;
 }
 
+void avio_context_deleter::operator()(AVIOContext *c) {
+    av_freep(&c->buffer);
+    delete static_cast<file_io *>(c->opaque);
+    avio_context_free(&c);
+}
+
 avio_context_ptr file_io::new_avio_context(const file_spec &spec) {
     auto io =
         std::make_unique<file_io>(spec.path, spec.start_pos, spec.file_size, spec.external_stream);
@@ -115,19 +119,14 @@ avio_context_ptr file_io::new_avio_context(const file_spec &spec) {
         throw std::bad_alloc();
     }
     return avio_context_ptr(avio_alloc_context(
-                                buffer, IO_BUFFER_SIZE, 0, io.release(),
-                                [](void *opaque, uint8_t *buf, int buf_size) {
-                                    return static_cast<file_io *>(opaque)->read(buf, buf_size);
-                                },
-                                nullptr,
-                                [](void *opaque, int64_t offset, int whence) {
-                                    return static_cast<file_io *>(opaque)->seek(offset, whence);
-                                }),
-                            [](AVIOContext *c) {
-                                av_freep(&c->buffer);
-                                delete static_cast<file_io *>(c->opaque);
-                                avio_context_free(&c);
-                            });
+        buffer, IO_BUFFER_SIZE, 0, io.release(),
+        [](void *opaque, uint8_t *buf, int buf_size) {
+            return static_cast<file_io *>(opaque)->read(buf, buf_size);
+        },
+        nullptr,
+        [](void *opaque, int64_t offset, int whence) {
+            return static_cast<file_io *>(opaque)->seek(offset, whence);
+        }));
 }
 
 } // namespace videoloader

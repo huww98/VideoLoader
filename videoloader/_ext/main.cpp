@@ -52,18 +52,19 @@ vector<video> open_tar_videos() {
                                   spdlog::info("{} videos opened...", n);
                               }
                               return true;
-                          });
+                          }, 4);
 }
 
 int main(int argc, char const *argv[]) {
     spdlog::set_pattern("[thread %t] %+");
     spdlog::set_level(spdlog::level::trace);
 
+    spdlog::info("Opening all videos");
     // auto videos = open_videos();
     auto videos = open_tar_videos();
 
     spdlog::info("{} videos opened.", videos.size());
-    return 0;
+    // return 0;
 
     dataset_load_schedule sche;
     sche.push_back({});

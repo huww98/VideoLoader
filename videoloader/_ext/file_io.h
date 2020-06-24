@@ -11,7 +11,10 @@ extern "C" {
 namespace huww {
 namespace videoloader {
 
-using avio_context_ptr = std::unique_ptr<AVIOContext, void (*)(AVIOContext *c)>;
+struct avio_context_deleter {
+    void operator()(AVIOContext *);
+};
+using avio_context_ptr = std::unique_ptr<AVIOContext, avio_context_deleter>;
 constexpr int IO_BUFFER_SIZE = 32768;
 
 class file_io {

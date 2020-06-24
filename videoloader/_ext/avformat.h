@@ -17,7 +17,7 @@ class avformat {
   public:
     explicit avformat(std::string url);
     avformat(const file_io::file_spec &spec);
-    avformat(avformat &&other) noexcept : io_context(nullptr, nullptr) {
+    avformat(avformat &&other) noexcept {
         *this = std::move(other);
     }
     avformat &operator=(avformat &&other) noexcept;
