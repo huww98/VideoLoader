@@ -64,13 +64,13 @@ std::vector<video> open_video_tar(std::string tar_path, Filter filter, int max_t
                 {
                     std::unique_lock lk(w.got_task_m);
                     while (true) {
-                        if (all_finished.load(std::memory_order_relaxed)) {
-                            SPDLOG_TRACE("Worker {} exit.", static_cast<void *>(&w));
-                            return;
-                        }
                         if (w.busy.load(std::memory_order_acquire)) {
                             SPDLOG_TRACE("Worker {} got task.", static_cast<void *>(&w));
                             break;
+                        }
+                        if (all_finished.load(std::memory_order_relaxed)) {
+                            SPDLOG_TRACE("Worker {} exit.", static_cast<void *>(&w));
+                            return;
                         }
                         SPDLOG_TRACE("Worker {} waiting for task.", static_cast<void *>(&w));
                         w.got_task.wait(lk);
