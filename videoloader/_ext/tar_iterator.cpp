@@ -7,6 +7,16 @@
 #include <numeric>
 #include <sstream>
 
+#if defined(__GNUC__)
+constexpr bool use_stdio_filebuf = true;
+#include <ext/stdio_filebuf.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#else
+constexpr bool use_stdio_filebuf = false;
+#endif
+
 namespace huww {
 
 struct tar_header {
@@ -65,13 +75,46 @@ static std::streamoff round_file_record_size(std::streamsize size) {
     return ((size + record_size - 1) / record_size) * record_size;
 }
 
+template <bool B> class tar_stream {};
+
+template <> class tar_stream<true> : public std::istream {
+    static_assert(use_stdio_filebuf);
+    __gnu_cxx::stdio_filebuf<std::istream::char_type> buf;
+
+    static int openfd(std::string path) {
+        int fd = open(path.c_str(), O_RDONLY);
+        if (fd < 0) {
+            throw std::system_error(errno, std::system_category());
+        }
+        return fd;
+    }
+
+  public:
+    tar_stream(std::string path)
+        : std::istream(&buf), buf(tar_stream::openfd(path), std::ios::binary | std::ios::in) {}
+
+    int fd() { return buf.fd(); }
+};
+
+template <> class tar_stream<false> : public std::ifstream {
+    tar_stream(std::string path) : std::ifstream(path, std::ios::binary | std::ios::in) {
+        if (!*this) {
+            std::ostringstream msg;
+            msg << "Unable to open file \"" << path << "\"";
+            throw std::system_error(errno, std::system_category(), msg.str());
+        }
+    }
+};
+
 class tar_file {
-    std::ifstream tar_stream;
+    huww::tar_stream<use_stdio_filebuf> tar_stream;
 
     tar_entry _entry;
     std::streampos next_header_pos;
 
   public:
+    int fd() { return tar_stream.fd(); }
+
     bool advance() {
         constexpr auto header_size = sizeof(tar_header);
         std::array<uint8_t, header_size> next_header;
@@ -151,16 +194,9 @@ class tar_file {
         }
     }
 
-    tar_file(std::string tar_path)
-        : tar_stream(tar_path, std::ifstream::in | std::ifstream::binary), _entry(*this) {
-        if (!tar_stream) {
-            std::ostringstream msg;
-            msg << "Unable to open file \"" << tar_path << "\"";
-            throw std::system_error(errno, std::system_category(), msg.str());
-        }
-    }
+    tar_file(std::string tar_path): tar_stream(tar_path), _entry(*this) {}
 
-    std::ifstream &stream() { return tar_stream; }
+    std::istream &stream() { return tar_stream; }
     const tar_entry &entry() { return _entry; }
 };
 
@@ -169,6 +205,13 @@ std::istream &tar_entry::begin_read_content() const {
         throw std::logic_error("Can only read content of file entry.");
     }
     return _tar_file.stream().seekg(this->content_start_position());
+}
+
+void tar_entry::will_need_content() const {
+    if constexpr (use_stdio_filebuf) {
+        posix_fadvise(this->_tar_file.fd(), this->content_start_position(), this->file_size(),
+                      POSIX_FADV_WILLNEED);
+    }
 }
 
 tar_iterator::tar_iterator(std::string tar_path) {

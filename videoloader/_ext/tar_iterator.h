@@ -50,6 +50,8 @@ class tar_entry {
      * the tar file yourself and use `content_start_position()` to seek to this file.
      */
     std::istream &begin_read_content() const;
+
+    void will_need_content() const;
 };
 
 class tar_iterator {

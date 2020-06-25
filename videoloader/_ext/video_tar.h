@@ -28,6 +28,7 @@ template <typename Filter> std::vector<video> open_video_tar(std::string tar_pat
         if (!filter(entry)) {
             continue;
         }
+        entry.will_need_content();
         auto v = video({
             .path = tar_path,
             .start_pos = entry.content_start_position(),
@@ -105,6 +106,7 @@ std::vector<video> open_video_tar(std::string tar_path, Filter filter, int max_t
             continue;
         }
         SPDLOG_TRACE("Processing entry {}", entry.path());
+        entry.will_need_content();
         worker *idle_worker = nullptr;
         auto search_idle_worker = [&idle_worker, &workers]() {
             for (auto &w : workers) {
