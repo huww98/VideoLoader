@@ -114,6 +114,7 @@ std::vector<video> open_video_tar(std::string tar_path, Filter filter, int max_t
                 if (search_idle_worker()) {
                     break;
                 }
+                SPDLOG_TRACE("Waiting for available workers.");
                 task_finished.wait(lk);
             }
         }
