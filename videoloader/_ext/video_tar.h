@@ -21,7 +21,7 @@ namespace videoloader {
 
 template <typename Filter> std::vector<video> open_video_tar(std::string tar_path, Filter filter) {
     std::vector<video> videos;
-    for (auto &entry : tar_iterator(tar_path)) {
+    for (auto &entry : tar_iterator(tar_path, tar_options::advise_sequential)) {
         if (entry.type() != huww::tar_entry_type::file) {
             continue;
         }
@@ -89,16 +89,7 @@ std::vector<video> open_video_tar(std::string tar_path, Filter filter, int max_t
     }
 
     std::deque<std::optional<video>> videos;
-    {
-        int fd = open(tar_path.c_str(), O_RDONLY);
-        if (fd < 0) {
-            throw std::system_error(errno, std::system_category());
-        }
-        posix_fadvise(fd, 0, 0, POSIX_FADV_SEQUENTIAL);
-        posix_fadvise(fd, 0, 0, POSIX_FADV_WILLNEED);
-        close(fd);
-    }
-    for (auto &entry : tar_iterator(tar_path)) {
+    for (auto &entry : tar_iterator(tar_path, tar_options::advise_sequential)) {
         if (entry.type() != huww::tar_entry_type::file) {
             continue;
         }

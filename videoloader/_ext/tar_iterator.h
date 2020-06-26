@@ -54,12 +54,28 @@ class tar_entry {
     void will_need_content() const;
 };
 
+enum class tar_options : uint8_t {
+    none = 0,
+    advise_sequential = 1,
+};
+
+constexpr tar_options operator&(tar_options x, tar_options y) noexcept {
+    using utype = typename std::underlying_type<tar_options>::type;
+    return static_cast<tar_options>(static_cast<utype>(x) & static_cast<utype>(y));
+}
+
+constexpr tar_options operator|(tar_options x, tar_options y) noexcept {
+    using utype = typename std::underlying_type<tar_options>::type;
+    return static_cast<tar_options>(static_cast<utype>(x) | static_cast<utype>(y));
+}
+
 class tar_iterator {
     std::shared_ptr<tar_file> _tar_file;
 
   public:
     tar_iterator() = default;
     explicit tar_iterator(std::string file_path);
+    tar_iterator(std::string file_path, tar_options options);
 
     const tar_entry &operator*() const;
     const tar_entry *operator->() const { return &**this; }

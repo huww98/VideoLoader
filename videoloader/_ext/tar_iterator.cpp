@@ -194,7 +194,7 @@ class tar_file {
         }
     }
 
-    tar_file(std::string tar_path): tar_stream(tar_path), _entry(*this) {}
+    tar_file(std::string tar_path) : tar_stream(tar_path), _entry(*this) {}
 
     std::istream &stream() { return tar_stream; }
     const tar_entry &entry() { return _entry; }
@@ -218,6 +218,14 @@ tar_iterator::tar_iterator(std::string tar_path) {
     auto file_ptr = std::make_shared<tar_file>(tar_path);
     if (file_ptr->advance()) {
         this->_tar_file = std::move(file_ptr);
+    }
+}
+
+tar_iterator::tar_iterator(std::string tar_path, tar_options options) : tar_iterator(tar_path) {
+    if constexpr (use_stdio_filebuf) {
+        if ((options & tar_options::advise_sequential) != tar_options::none) {
+            posix_fadvise(this->_tar_file->fd(), 0, 0, POSIX_FADV_SEQUENTIAL);
+        }
     }
 }
 
