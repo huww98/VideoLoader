@@ -51,7 +51,22 @@ class tar_entry {
      */
     std::istream &begin_read_content() const;
 
+    /**
+     * Call `posix_fadvise(..., POSIX_FADV_WILLNEED)` on supported platform.
+     *
+     * Encourage OS to read sequentially. But only 128KB data is fetched on my platform. Try also
+     * `prefetch_content()` to see which is more suitable.
+     */
     void will_need_content() const;
+
+    /**
+     * Read all content from this entry and ignore them.
+     *
+     * This will populate OS cache so that subsequent read (maybe from other thread) will be faster,
+     * and will not break sequential read pattern. Eventually， this may improve overall IO
+     * throughput dramatically on HDD.
+     */
+    void prefetch_content() const;
 };
 
 enum class tar_options : uint8_t {

@@ -7,7 +7,6 @@
 #include <string>
 #include <thread>
 #include <vector>
-#include <system_error>
 
 #include <fcntl.h>
 #include <spdlog/spdlog.h>
@@ -44,7 +43,8 @@ template <typename Filter> std::vector<video> open_video_tar(std::string tar_pat
 std::vector<video> open_video_tar(std::string tar_path);
 
 template <typename Filter>
-std::vector<video> open_video_tar(std::string tar_path, Filter filter, int max_threads) {
+std::vector<video> open_video_tar(std::string tar_path, Filter filter, int max_threads,
+                                  tar_options options = tar_options::advise_sequential) {
     SPDLOG_TRACE("Open tar file with max {} threads", max_threads);
     std::condition_variable task_finished;
     std::mutex task_finished_m;
@@ -89,7 +89,7 @@ std::vector<video> open_video_tar(std::string tar_path, Filter filter, int max_t
     }
 
     std::deque<std::optional<video>> videos;
-    for (auto &entry : tar_iterator(tar_path, tar_options::advise_sequential)) {
+    for (auto &entry : tar_iterator(tar_path, options)) {
         if (entry.type() != huww::tar_entry_type::file) {
             continue;
         }
@@ -97,7 +97,9 @@ std::vector<video> open_video_tar(std::string tar_path, Filter filter, int max_t
             continue;
         }
         SPDLOG_TRACE("Processing entry {}", entry.path());
-        entry.will_need_content();
+        if ((options & tar_options::advise_sequential) != tar_options::none) {
+            entry.prefetch_content();
+        }
         worker *idle_worker = nullptr;
         auto search_idle_worker = [&idle_worker, &workers]() {
             for (auto &w : workers) {

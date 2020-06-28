@@ -214,6 +214,11 @@ void tar_entry::will_need_content() const {
     }
 }
 
+void tar_entry::prefetch_content() const {
+    auto &stream = this->begin_read_content();
+    stream.ignore(file_size());
+}
+
 tar_iterator::tar_iterator(std::string tar_path) {
     auto file_ptr = std::make_shared<tar_file>(tar_path);
     if (file_ptr->advance()) {
