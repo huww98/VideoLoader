@@ -45,6 +45,9 @@ std::vector<video> open_video_tar(std::string tar_path);
 template <typename Filter>
 std::vector<video> open_video_tar(std::string tar_path, Filter filter, int max_threads,
                                   tar_options options = tar_options::advise_sequential) {
+    if (max_threads <= 0) {
+        throw std::logic_error("max_threads should be greater than 0");
+    }
     SPDLOG_TRACE("Open tar file with max {} threads", max_threads);
     std::condition_variable task_finished;
     std::mutex task_finished_m;

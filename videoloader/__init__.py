@@ -1,4 +1,4 @@
-from typing import Union, Iterable
+from typing import Union, Iterable, Callable, Optional
 import os
 import contextlib
 
@@ -13,6 +13,12 @@ def _data_convert_to_pytorch(batch):
     import torch.utils.dlpack
     return torch.utils.dlpack.from_dlpack(batch)
 
+
+def open_video_tar(
+        tar_path: Union[os.PathLike, str, bytes],
+        entry_filter: Optional[Callable[[_ext.TarEntry], bool]] = None,
+        max_threads=-1):
+    return _ext.open_video_tar(Video, tar_path, entry_filter, max_threads)
 
 class Video(_ext._Video):
     ''' An opened video file.
@@ -39,7 +45,7 @@ class Video(_ext._Video):
         }.get(data_container)
         if self._data_convert is None:
             raise ValueError(f'Unsupported data container "{data_container}"')
-        
+
         self._kept_awake = 0
 
     def get_batch(self, frame_indices: Iterable[int]):

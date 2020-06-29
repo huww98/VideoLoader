@@ -9,6 +9,7 @@
 
 #include "pyref.h"
 #include "video.h"
+#include "video_tar.h"
 
 using namespace huww;
 
@@ -40,8 +41,17 @@ static error_t get_error_code(std::exception &e) {
     return 0;
 }
 
+class PyError : public std::runtime_error {
+  public:
+    PyError() : std::runtime_error("Python API returned error.") {}
+};
+
 static void handle_exception(std::exception &e) {
     PyObject *py_exception = nullptr;
+
+    if (dynamic_cast<PyError *>(&e)) {
+        return; // Python API should already set execption.
+    }
 
     auto code = get_error_code(e);
     if (code > 0) {
@@ -67,37 +77,24 @@ class release_GIL_guard {
     PyThreadState *_save;
 
   public:
+    release_GIL_guard(release_GIL_guard &&) = delete;
+    release_GIL_guard(const release_GIL_guard &) = delete;
+
     release_GIL_guard() noexcept : _save(PyEval_SaveThread()) {}
     ~release_GIL_guard() noexcept { PyEval_RestoreThread(_save); }
-};
 
-static PyObject *DLTensor_to_numpy(PyObject *unused, PyObject *_arg) {
-    owned_pyref cap = borrowed_pyref(_arg).own();
-    auto p = PyCapsule_GetPointer(cap.get(), dltensor_capsule_name);
-    if (p == nullptr) {
-        PyErr_SetString(PyExc_ValueError, "No compatible DLTensor found.");
-        return nullptr;
-    }
-    auto dlpack = static_cast<DLManagedTensor *>(p);
-    auto &dl = dlpack->dl_tensor;
-    owned_pyref array = PyArray_New(&PyArray_Type, dl.ndim, dl.shape, NPY_UINT8, dl.strides,
-                                    dl.data, 0, 0, nullptr);
-    PyArray_SetBaseObject((PyArrayObject *)array.get(), cap.transfer());
-    return array.transfer();
-}
+    class GIL_guard {
+        PyThreadState *&_save;
 
-static PyMethodDef videoLoader_methods[] = {
-    {"dltensor_to_numpy", DLTensor_to_numpy, METH_O, nullptr},
-    {nullptr},
-};
+      public:
+        GIL_guard(GIL_guard &&) = delete;
+        GIL_guard(const GIL_guard &) = delete;
 
-static struct PyModuleDef videoLoaderModule = {
-    .m_base = PyModuleDef_HEAD_INIT,
-    .m_name = "videoloader._ext",
-    .m_doc = nullptr,
-    .m_size = -1, /* size of per-interpreter state of the module,
-                     or -1 if the module keeps state in global variables. */
-    .m_methods = videoLoader_methods,
+        GIL_guard(PyThreadState *&save) noexcept : _save(save) { PyEval_RestoreThread(_save); }
+        ~GIL_guard() noexcept { _save = PyEval_SaveThread(); }
+    };
+
+    GIL_guard acquire() { return {_save}; }
 };
 
 struct PyVideo {
@@ -174,11 +171,8 @@ static owned_pyref FractionClass;
 
 static PyObject *PyVideo_AverageFrameRate(PyVideo *self, PyObject *args) {
     auto frameRate = self->video->average_frame_rate();
-    owned_pyref pyFrameRateArgs = Py_BuildValue("ii", frameRate.num, frameRate.den);
-    if (!pyFrameRateArgs) {
-        return nullptr;
-    }
-    owned_pyref pyFrameRate = PyObject_Call(FractionClass.get(), pyFrameRateArgs.get(), nullptr);
+    owned_pyref pyFrameRate =
+        PyObject_CallFunction(FractionClass.get(), "ii", frameRate.num, frameRate.den);
     return pyFrameRate.transfer();
 }
 
@@ -245,10 +239,166 @@ static PyTypeObject PyVideoType = {
     .tp_new = PyVideo_new,
 };
 
+static PyObject *DLTensor_to_numpy(PyObject *unused, PyObject *_arg) {
+    owned_pyref cap = borrowed_pyref(_arg).own();
+    auto p = PyCapsule_GetPointer(cap.get(), dltensor_capsule_name);
+    if (p == nullptr) {
+        PyErr_SetString(PyExc_ValueError, "No compatible DLTensor found.");
+        return nullptr;
+    }
+    auto dlpack = static_cast<DLManagedTensor *>(p);
+    auto &dl = dlpack->dl_tensor;
+    owned_pyref array = PyArray_New(&PyArray_Type, dl.ndim, dl.shape, NPY_UINT8, dl.strides,
+                                    dl.data, 0, 0, nullptr);
+    PyArray_SetBaseObject((PyArrayObject *)array.get(), cap.transfer());
+    return array.transfer();
+}
+
+struct PyTarEntry {
+    PyObject_HEAD;
+    const huww::tar_entry *entry;
+};
+
+static PyObject *PyTarEntry_GetPath(PyTarEntry *self, void *closure) {
+    return PyUnicode_FromString(self->entry->path().c_str());
+}
+
+// Define some overloads to let compiler choose the best version.
+static PyObject *PyLong_FromNumber(long long num) { return PyLong_FromLongLong(num); }
+
+static PyObject *PyLong_FromNumber(long num) { return PyLong_FromLong(num); }
+
+static PyObject *PyLong_FromNumber(unsigned long long num) {
+    return PyLong_FromUnsignedLongLong(num);
+}
+
+static PyObject *PyLong_FromNumber(unsigned long num) { return PyLong_FromUnsignedLong(num); }
+
+static PyObject *PyTarEntry_GetFileSize(PyTarEntry *self, void *closure) {
+    return PyLong_FromNumber(self->entry->file_size());
+}
+
+static PyGetSetDef PyTarEntryGetSets[] = {
+    {"path", (getter)PyTarEntry_GetPath},
+    {"file_size", (getter)PyTarEntry_GetFileSize},
+    {nullptr},
+};
+
+static PyTypeObject PyTarEntryType = {
+    .ob_base = PyVarObject_HEAD_INIT(nullptr, 0) // clang-format off
+    .tp_name = "videoloader._ext.TarEntry", // clang-format on
+    .tp_basicsize = sizeof(PyTarEntry),
+    .tp_itemsize = 0,
+    .tp_flags = Py_TPFLAGS_DEFAULT,
+    .tp_getset = PyTarEntryGetSets,
+};
+
+#include <iostream>
+
+static PyObject *PyVideo_OpenVideoTar(PyObject *unused, PyObject *args) {
+    borrowed_pyref video_type = nullptr;
+    std::string tar_path_str;
+    borrowed_pyref filter = nullptr;
+    int max_threads = -1;
+    {
+        PyTypeObject *_video_type;
+        PyBytesObject *_tar_path_obj;
+        PyObject *_filter;
+        if (!PyArg_ParseTuple(args, "O!O&Oi", &PyType_Type, &_video_type, PyUnicode_FSConverter,
+                              &_tar_path_obj, &_filter, &max_threads)) {
+            return nullptr;
+        }
+        if (_filter != Py_None) {
+            if (!PyCallable_Check(_filter)) {
+                PyErr_SetString(PyExc_TypeError, "filter should be a callable");
+                return nullptr;
+            }
+            filter = _filter;
+        }
+
+        if (!PyType_IsSubtype(_video_type, &PyVideoType)) {
+            PyErr_SetString(PyExc_TypeError, "video_type should be a sub-type of Video");
+            return nullptr;
+        }
+        video_type = (PyObject *)_video_type;
+
+        owned_pyref file_path_obj((PyObject *)_tar_path_obj);
+        auto file_path = PyBytes_AsString(file_path_obj.get());
+        if (file_path == nullptr)
+            return nullptr;
+        tar_path_str = file_path;
+    }
+    std::vector<videoloader::video> videos;
+    try {
+        {
+            release_GIL_guard no_GIL;
+            if (filter) {
+                auto native_filter = [&no_GIL, filter](const tar_entry &entry) {
+                    auto GIL = no_GIL.acquire();
+                    owned_pyref py_entry = PyTarEntryType.tp_alloc(&PyTarEntryType, 0);
+                    if (!py_entry) {
+                        throw PyError();
+                    }
+                    ((PyTarEntry *)py_entry.get())->entry = &entry;
+                    owned_pyref result = PyObject_CallFunctionObjArgs(filter.get(), py_entry.get(), nullptr);
+                    if (!result) {
+                        throw PyError();
+                    }
+                    return PyObject_IsTrue(result.get());
+                };
+                if (max_threads > 0) {
+                    videos = videoloader::open_video_tar(tar_path_str, native_filter, max_threads);
+                } else {
+                    videos = videoloader::open_video_tar(tar_path_str, native_filter);
+                }
+            } else {
+                if (max_threads > 0) {
+                    videos = videoloader::open_video_tar(tar_path_str, max_threads);
+                } else {
+                    videos = videoloader::open_video_tar(tar_path_str);
+                }
+            }
+        }
+    } catch (std::exception &e) {
+        handle_exception(e);
+        return nullptr;
+    }
+    owned_pyref video_list = PyList_New(videos.size());
+    if (!video_list) {
+        return nullptr;
+    }
+    for (size_t i = 0; i < videos.size(); i++) {
+        auto &v = videos[i];
+        owned_pyref py_video = PyVideo_new((PyTypeObject *)video_type.get(), nullptr, nullptr);
+        if (!py_video) {
+            return nullptr;
+        }
+        ((PyVideo *)py_video.get())->video = std::move(v);
+        PyList_SET_ITEM(video_list.get(), i, py_video.transfer());
+    }
+    return video_list.transfer();
+}
+
+static PyMethodDef videoLoader_methods[] = {
+    {"dltensor_to_numpy", DLTensor_to_numpy, METH_O, nullptr},
+    {"open_video_tar", PyVideo_OpenVideoTar, METH_VARARGS, nullptr},
+    {nullptr},
+};
+
+static struct PyModuleDef videoLoaderModule = {
+    .m_base = PyModuleDef_HEAD_INIT,
+    .m_name = "videoloader._ext",
+    .m_doc = nullptr,
+    .m_size = -1, /* size of per-interpreter state of the module,
+                     or -1 if the module keeps state in global variables. */
+    .m_methods = videoLoader_methods,
+};
+
 PyMODINIT_FUNC PyInit__ext(void) {
     if (PyType_Ready(&PyVideoType) < 0)
         return nullptr;
-    borrowed_pyref videoType((PyObject *)&PyVideoType);
+    if (PyType_Ready(&PyTarEntryType) < 0)
+        return nullptr;
 
     owned_pyref m = PyModule_Create(&videoLoaderModule);
     if (m.get() == nullptr)
@@ -257,7 +407,10 @@ PyMODINIT_FUNC PyInit__ext(void) {
     import_array(); // import numpy
     videoloader::init();
 
-    if (PyModule_AddObject(m.get(), "_Video", videoType.get()) < 0) {
+    if (PyModule_AddObject(m.get(), "_Video", (PyObject *)&PyVideoType) < 0) {
+        return nullptr;
+    }
+    if (PyModule_AddObject(m.get(), "TarEntry", (PyObject *)&PyTarEntryType) < 0) {
         return nullptr;
     }
 
