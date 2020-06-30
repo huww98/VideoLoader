@@ -254,14 +254,19 @@ static PyObject *DLTensor_to_numpy(PyObject *unused, PyObject *_arg) {
     return array.transfer();
 }
 
-struct PyTarEntry {
-    PyObject_HEAD;
-    const huww::tar_entry *entry;
+static PyStructSequence_Field PyTarEntry_Fields[]{
+    {"path"},
+    {"file_size"},
+    {nullptr},
 };
 
-static PyObject *PyTarEntry_GetPath(PyTarEntry *self, void *closure) {
-    return PyUnicode_FromString(self->entry->path().c_str());
-}
+static PyStructSequence_Desc PyTarEntry_Desc{
+    .name = "videoloader._ext.TarEntry",
+    .fields = PyTarEntry_Fields,
+    .n_in_sequence = 2,
+};
+
+static PyTypeObject PyTarEntry_Type;
 
 // Define some overloads to let compiler choose the best version.
 static PyObject *PyLong_FromNumber(long long num) { return PyLong_FromLongLong(num); }
@@ -273,27 +278,6 @@ static PyObject *PyLong_FromNumber(unsigned long long num) {
 }
 
 static PyObject *PyLong_FromNumber(unsigned long num) { return PyLong_FromUnsignedLong(num); }
-
-static PyObject *PyTarEntry_GetFileSize(PyTarEntry *self, void *closure) {
-    return PyLong_FromNumber(self->entry->file_size());
-}
-
-static PyGetSetDef PyTarEntryGetSets[] = {
-    {"path", (getter)PyTarEntry_GetPath},
-    {"file_size", (getter)PyTarEntry_GetFileSize},
-    {nullptr},
-};
-
-static PyTypeObject PyTarEntryType = {
-    .ob_base = PyVarObject_HEAD_INIT(nullptr, 0) // clang-format off
-    .tp_name = "videoloader._ext.TarEntry", // clang-format on
-    .tp_basicsize = sizeof(PyTarEntry),
-    .tp_itemsize = 0,
-    .tp_flags = Py_TPFLAGS_DEFAULT,
-    .tp_getset = PyTarEntryGetSets,
-};
-
-#include <iostream>
 
 static PyObject *PyVideo_OpenVideoTar(PyObject *unused, PyObject *args) {
     borrowed_pyref video_type = nullptr;
@@ -330,33 +314,34 @@ static PyObject *PyVideo_OpenVideoTar(PyObject *unused, PyObject *args) {
     }
     std::vector<videoloader::video> videos;
     try {
-        {
-            release_GIL_guard no_GIL;
-            if (filter) {
-                auto native_filter = [&no_GIL, filter](const tar_entry &entry) {
-                    auto GIL = no_GIL.acquire();
-                    owned_pyref py_entry = PyTarEntryType.tp_alloc(&PyTarEntryType, 0);
-                    if (!py_entry) {
-                        throw PyError();
-                    }
-                    ((PyTarEntry *)py_entry.get())->entry = &entry;
-                    owned_pyref result = PyObject_CallFunctionObjArgs(filter.get(), py_entry.get(), nullptr);
-                    if (!result) {
-                        throw PyError();
-                    }
-                    return PyObject_IsTrue(result.get());
-                };
-                if (max_threads > 0) {
-                    videos = videoloader::open_video_tar(tar_path_str, native_filter, max_threads);
-                } else {
-                    videos = videoloader::open_video_tar(tar_path_str, native_filter);
+        release_GIL_guard no_GIL;
+        if (filter) {
+            auto native_filter = [&no_GIL, filter](const tar_entry &entry) {
+                auto GIL = no_GIL.acquire();
+                owned_pyref py_entry = PyStructSequence_New(&PyTarEntry_Type);
+                if (!py_entry) {
+                    throw PyError();
                 }
+                PyStructSequence_SET_ITEM(py_entry.get(), 0,
+                                          PyUnicode_FromString(entry.path().c_str()));
+                PyStructSequence_SET_ITEM(py_entry.get(), 1, PyLong_FromNumber(entry.file_size()));
+                owned_pyref result =
+                    PyObject_CallFunctionObjArgs(filter.get(), py_entry.get(), nullptr);
+                if (!result) {
+                    throw PyError();
+                }
+                return PyObject_IsTrue(result.get());
+            };
+            if (max_threads > 0) {
+                videos = videoloader::open_video_tar(tar_path_str, native_filter, max_threads);
             } else {
-                if (max_threads > 0) {
-                    videos = videoloader::open_video_tar(tar_path_str, max_threads);
-                } else {
-                    videos = videoloader::open_video_tar(tar_path_str);
-                }
+                videos = videoloader::open_video_tar(tar_path_str, native_filter);
+            }
+        } else {
+            if (max_threads > 0) {
+                videos = videoloader::open_video_tar(tar_path_str, max_threads);
+            } else {
+                videos = videoloader::open_video_tar(tar_path_str);
             }
         }
     } catch (std::exception &e) {
@@ -397,7 +382,7 @@ static struct PyModuleDef videoLoaderModule = {
 PyMODINIT_FUNC PyInit__ext(void) {
     if (PyType_Ready(&PyVideoType) < 0)
         return nullptr;
-    if (PyType_Ready(&PyTarEntryType) < 0)
+    if (PyStructSequence_InitType2(&PyTarEntry_Type, &PyTarEntry_Desc) < 0)
         return nullptr;
 
     owned_pyref m = PyModule_Create(&videoLoaderModule);
@@ -410,7 +395,7 @@ PyMODINIT_FUNC PyInit__ext(void) {
     if (PyModule_AddObject(m.get(), "_Video", (PyObject *)&PyVideoType) < 0) {
         return nullptr;
     }
-    if (PyModule_AddObject(m.get(), "TarEntry", (PyObject *)&PyTarEntryType) < 0) {
+    if (PyModule_AddObject(m.get(), "TarEntry", (PyObject *)&PyTarEntry_Type) < 0) {
         return nullptr;
     }
 
